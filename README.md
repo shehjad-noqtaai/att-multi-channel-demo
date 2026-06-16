@@ -3,10 +3,123 @@
 A Sanity-powered demo showing how **Sanity AI (Agent Actions)** turns a single campaign brief into a full matrix of channel- and segment-specific content variations — generated, previewable, and editable inside Sanity.
 
 > **Build-ready PRD: see [`docs/PRD.md`](./docs/PRD.md)** — self-contained, no external references required. Appendix A–E has copy-pasteable templates for every role.
+>
+> **Architecture overview: see [`docs/architecture.md`](./docs/architecture.md)**
 
 ## The "wow" moment
 
 A marketer writes one brief in an **App SDK app**, clicks _Generate variations_, and Sanity AI produces **12 personalized variations** (3 channels × 4 segments) — each shaped to the channel's format and the segment's brand voice. All 12 are previewable as a live channel × segment matrix inside Sanity Studio with channel-accurate mockups.
+
+## Prerequisites
+
+- **Node.js** ≥ 20.19
+- **npm** (workspaces monorepo)
+- A Sanity account with access to project `z6s0fz61` / dataset `production`
+- For **Generate variations** (Agent Actions): an editor token with read + write on the dataset
+- For **App SDK deploy**: an organization-level token with **Manage SDK Apps** permission (org `oab7ManMj`)
+
+## Getting started
+
+```bash
+git clone https://github.com/demo-repositories/att-personalization.git
+cd att-personalization
+npm install
+```
+
+## Run locally
+
+The monorepo has two frontends that share code from `studio/src/`. Run them in separate terminals.
+
+### Sanity Studio (content editors + Variations tab)
+
+```bash
+npm run studio:dev
+```
+
+Opens at **http://localhost:3333** (default Sanity dev port). Sign in with your Sanity account when prompted.
+
+From Studio you can:
+
+- Edit campaign briefs, channels, segments, and merge-field registry
+- Click **Generate variations** on a `campaignBrief` document (calls live Agent Actions)
+- Open the **Variations** tab on a brief to preview the channel × segment matrix
+
+### Campaign Studio (App SDK — marketer-facing app)
+
+```bash
+npm run app:dev
+```
+
+Opens at **http://localhost:3333** by default (Vite). If Studio is already running, Vite will pick the next free port (e.g. 3334) and print the URL in the terminal.
+
+The App SDK app handles sign-in via `@sanity/sdk-react`. After login you get a brief list, brief editor, generate dialog with progress, and the same variation matrix previews as Studio.
+
+Optional env overrides — copy the example file or use the populated defaults in `.env`:
+
+```bash
+cp apps/campaign-studio/.env.example apps/campaign-studio/.env
+# already populated: VITE_SANITY_PROJECT_ID=z6s0fz61, VITE_SANITY_DATASET=production
+```
+
+### Verify the build
+
+```bash
+npm run typecheck   # studio + campaign-studio
+npm run test        # vitest in studio (36 unit tests)
+npm run studio:build
+npm run app:build
+```
+
+## Deploy
+
+Both apps deploy to Sanity-hosted URLs. Set `SANITY_AUTH_TOKEN` in `studio/.env` (see `studio/.env.example`) or export it in your shell.
+
+| App | Directory | Command | Hosted URL |
+|-----|-----------|---------|------------|
+| **Studio** | `studio/` | `npm run deploy` | https://att-personalization.sanity.studio/ |
+| **App SDK** | `apps/campaign-studio/` | `npm run deploy` | https://attcampaignstudio.sanity.studio/ |
+
+### Deploy Studio (schema + bundle)
+
+Studio deploy builds the bundle, deploys the schema, and publishes to Sanity hosting in one step:
+
+```bash
+cd studio
+export SANITY_AUTH_TOKEN=<deploy-studio-or-editor-token>
+npm run deploy
+```
+
+Schema id is captured in [`studio/SCHEMA_ID.md`](./studio/SCHEMA_ID.md) (`_.schemas.default`). Re-run deploy after any schema change — Agent Actions validates against the deployed schema.
+
+Deploy only the schema (no Studio bundle):
+
+```bash
+npm run studio:deploy-schema
+```
+
+### Deploy Campaign Studio (App SDK)
+
+Requires an **organization-level** token with **Manage SDK Apps** (a project deploy token is not sufficient):
+
+```bash
+cd apps/campaign-studio
+export SANITY_AUTH_TOKEN=<org-token-with-manage-sdk-apps>
+npm run deploy
+```
+
+App and org ids are wired in `apps/campaign-studio/sanity.cli.ts`.
+
+### Live smoke test (Agent Actions)
+
+After deploy, verify end-to-end generation with an **editor** token (not deploy-only):
+
+```bash
+cd studio
+export SANITY_AUTH_TOKEN=<editor-token>
+npx tsx scripts/smoke.ts
+```
+
+Expects seeded brief `brief-spring5g` and writes 12 `contentVariation` documents.
 
 ## Stack
 
@@ -22,7 +135,9 @@ Per PRD §Tech stack — implementing agents should confirm exact API shapes aga
 ```
 att-personalization/                       # npm workspaces monorepo
 ├── docs/
-│   └── PRD.md                            # The authoritative spec (Appendix A–E = templates)
+│   ├── PRD.md                            # The authoritative spec (Appendix A–E = templates)
+│   ├── architecture.md                   # How the system fits together
+│   └── SEED.md                           # Seeded document ids
 ├── studio/                               # Sanity Studio
 │   └── src/
 │       ├── schemaTypes/                  # campaignBrief, channel, segment, mergeField, product,
@@ -48,6 +163,8 @@ att-personalization/                       # npm workspaces monorepo
 
 - **Sanity project:** `z6s0fz61` (org `oab7ManMj`) — dataset `production`
 - **GitHub:** [`demo-repositories/att-personalization`](https://github.com/demo-repositories/att-personalization)
+- **Seed data reference:** [`docs/SEED.md`](./docs/SEED.md)
+- **Architecture:** [`docs/architecture.md`](./docs/architecture.md)
 
 ## Build plan (7 passes, one per spec/PR)
 
