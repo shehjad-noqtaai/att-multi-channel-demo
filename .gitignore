@@ -1,0 +1,34 @@
+# Local
+node_modules/
+.pnpm-store/
+.pnp.*
+
+# Build outputs
+dist/
+build/
+.next/
+.cache/
+*.tsbuildinfo
+
+# Sanity
+.sanity/
+sanity-typegen.json
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

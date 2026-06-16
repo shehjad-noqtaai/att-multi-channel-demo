@@ -1,0 +1,19 @@
+{
+  "name": "att-personalization",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "studio",
+    "apps/*"
+  ],
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "studio:dev": "pnpm --filter studio dev",
+    "studio:build": "pnpm --filter studio build",
+    "studio:deploy-schema": "pnpm --filter studio deploy-schema",
+    "app:dev": "pnpm --filter campaign-studio dev",
+    "app:build": "pnpm --filter campaign-studio build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
