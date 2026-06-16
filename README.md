@@ -47,7 +47,7 @@ att-personalization/                       # npm workspaces monorepo
 ## Project
 
 - **Sanity project:** `z6s0fz61` (org `oab7ManMj`) — dataset `production`
-- **GitHub:** [`shehjad-noqtaai/att-personalization`](https://github.com/shehjad-noqtaai/att-personalization)
+- **GitHub:** [`demo-repositories/att-personalization`](https://github.com/demo-repositories/att-personalization)
 
 ## Build plan (7 passes, one per spec/PR)
 
