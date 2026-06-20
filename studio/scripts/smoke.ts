@@ -21,9 +21,9 @@ async function main() {
     apiVersion: '2024-10-01',
   })
 
-  console.log('[smoke] generateMatrix(brief-spring5g) starting …')
-  const cells = await generateMatrix(client, {
-    briefId: 'brief-spring5g',
+  console.log('[smoke] generateMatrix(brief-iphone17-tradein) starting …')
+  const {cells, releaseId} = await generateMatrix(client, {
+    briefId: 'brief-iphone17-tradein',
     onProgress: (p) => {
       console.log(`[smoke] ${p.done}/${p.total} — ${p.current.channel}/${p.current.segment}`)
     },
@@ -31,7 +31,7 @@ async function main() {
 
   const generated = cells.filter((c) => c.status === 'generated').length
   const errored = cells.filter((c) => c.status === 'error').length
-  console.log(`[smoke] done — generated=${generated} error=${errored} total=${cells.length}`)
+  console.log(`[smoke] done — generated=${generated} error=${errored} total=${cells.length} releaseId=${releaseId}`)
 
   if (errored > 0) {
     console.log('[smoke] errored cells:')
@@ -47,7 +47,7 @@ async function main() {
   // Spot-check one SMS cell
   const smsCell = await client.fetch(
     '*[_id == $id][0]{_id, channel, segment, status, "smsMessage": sms.message, "smsLen": length(coalesce(sms.message, ""))}',
-    {id: 'variation.brief-spring5g.default.sms.value'},
+    {id: 'variation.brief-iphone17-tradein.default.sms.value'},
   )
   console.log('[smoke] sms.value sample:', JSON.stringify(smsCell, null, 2))
 }
