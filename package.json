@@ -17,6 +17,7 @@
     "test": "npm --workspaces --if-present run test",
     "storefront:dev": "npm --workspace storefront run dev",
     "storefront:build": "npm --workspace storefront run build",
-    "storefront:start": "npm --workspace storefront run start"
+    "storefront:start": "npm --workspace storefront run start",
+    "demo:regenerate": "npm --workspace studio run demo:regenerate --"
   }
 }

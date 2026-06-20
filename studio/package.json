@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "deploy-schema": "sanity schema deploy",
     "deploy": "sanity deploy",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo:regenerate": "tsx scripts/regenerateForDemo.ts",
+    "demo:smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@sanity/assist": "^6.1.3",
