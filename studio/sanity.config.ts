@@ -8,7 +8,7 @@ import {generateVariationsAction} from './src/actions/generateVariations'
 
 // Config document types that should NOT appear in the global "Create new" menu.
 // These are seeded by an admin and edited in place, never created from scratch.
-const HIDDEN_FROM_CREATE = new Set(['channel', 'segment', 'mergeField'])
+const HIDDEN_FROM_CREATE = new Set(['channel', 'segment', 'mergeField', 'storefrontHomepage'])
 
 export default defineConfig({
   name: 'default',
