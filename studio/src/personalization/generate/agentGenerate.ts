@@ -29,7 +29,6 @@ export interface GenerateVariationArgs {
   segmentRefId: string                              // the seeded segment doc _id (e.g. 'segment-new')
   instruction: string
   instructionParams: Record<string, InstructionParam>
-  withImage: boolean                                // true only for the 'web' channel
 }
 
 export async function agentGenerateVariation(
@@ -44,45 +43,30 @@ export async function agentGenerateVariation(
     segmentRefId,
     instruction,
     instructionParams,
-    withImage,
   }: GenerateVariationArgs,
-): Promise<unknown> {
+): Promise<Record<string, unknown>> {
   const agent = client.withConfig({apiVersion: AGENT_ACTION_API_VERSION})
 
-  // `target` scopes WHICH paths Generate may write — this is what keeps a
-  // variation single-channel and lets web (and only web) receive a hero image.
-  //
-  //   without image →  {path: ['web']}              (writes only the channel object)
-  //   with image    →  [{path: ['web']},            (channel object …)
-  //                     {path: ['web','heroImage','asset']}]   (… and the generated asset)
-  const target = withImage
-    ? [{path: [channel]}, {path: [channel, 'heroImage', 'asset']}]
-    : {path: [channel]}
+  // Text-only target — hero images come from the brief allowed media library,
+  // assigned by orchestrate after Generate (never AI-generated assets). Exclude
+  // `heroImage` from the agent's write scope so it can't emit an empty/AI image
+  // placeholder; orchestrate sets the real asset from brief.allowedMedia after.
+  const target = {path: [channel], exclude: ['heroImage']}
 
-  // `agent.action.generate` is @beta. Returned shape is the updated document;
-  // when withImage=true, the asset is *async* — `heroImage.asset` may resolve
-  // after the call returns (preview UIs must null-guard).
+  // `noWrite: true` — the agent generates the document in memory and returns it
+  // WITHOUT mutating the dataset. orchestrate then writes the result as a
+  // *version* document into the brief's content release (so nothing lands in
+  // published until the marketer promotes the release).
   //
-  // PRD spec'd operation:'create', but in practice Generate validates against
-  // existing dataset state and refuses if the _id exists. Use createOrReplace
-  // — the server error message itself recommends it. Caught via pass-3 live
-  // smoke.
-  //
-  // `initialValues` is critical: the contentVariation schema hides the channel
-  // objects (web/email/sms) via `hidden: ({parent}) => parent?.channel !== '<key>'`.
-  // Without seeding `channel`, `segment`, `flowStep`, refs, and `status` here,
-  // createOrReplace wipes the placeholder doc → `parent.channel` becomes undefined
-  // → Generate refuses to write to target with "path 'web' is hidden from the
-  // instruction." Pre-seeding via initialValues unlocks the conditional path.
+  // `initialValues` is still critical even with noWrite: the contentVariation
+  // schema hides the channel objects (web/email/sms) via
+  // `hidden: ({parent}) => parent?.channel !== '<key>'`. Seeding `channel`,
+  // `segment`, `flowStep`, and the refs unlocks the conditional target path so
+  // Generate is allowed to write into e.g. `web`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (agent as any).agent.action.generate({
     schemaId: AGENT_SCHEMA_ID,
-    // forcePublishedWrite: by default Generate creates a `drafts.<id>` even when
-    // we ask for the published id, then leaves the published doc untouched. The
-    // PRD relies on a deterministic PUBLISHED id (no perspective dance) — for
-    // the matrix query, for the App SDK reads, for the Studio doc view. Force
-    // Generate to write directly to the published id. Caught via pass-3 smoke.
-    forcePublishedWrite: true,
+    noWrite: true,
     targetDocument: {
       operation: 'createOrReplace',
       _id: targetId,
@@ -94,12 +78,10 @@ export async function agentGenerateVariation(
         flowStep,
         channelRef: {_type: 'reference', _ref: channelRefId},
         segmentRef: {_type: 'reference', _ref: segmentRefId},
-        // status is intentionally NOT seeded here — orchestrate.ts patches it
-        // to 'generated' / 'error' after this call returns.
       },
     },
     instruction,
     instructionParams,
     target,
-  })
+  }) as Promise<Record<string, unknown>>
 }

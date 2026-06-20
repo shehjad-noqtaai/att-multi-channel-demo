@@ -20,16 +20,15 @@ export const webContent = defineType({
     defineField({name: 'ctaUrl', title: 'CTA URL', type: 'url'}),
     defineField({
       name: 'heroImage',
+      title: 'Hero image',
       type: 'image',
-      options: {
-        hotspot: true,
-        // AI Assist / Agent Actions read this field name to know which sibling
-        // field holds the image-generation prompt.
-        aiAssist: {imageInstructionField: 'imagePrompt'},
-      },
+      options: {hotspot: true},
+      description: 'Set from the brief’s allowed media during Generate. Either a project asset ref or a Media Library URL.',
       fields: [
         defineField({name: 'alt', type: 'string', title: 'Alt text'}),
-        defineField({name: 'imagePrompt', type: 'text', title: 'Image prompt', hidden: true}),
+        // Direct CDN URL when the hero comes from the Sanity Media Library
+        // (those assets have no project-dataset asset ref).
+        defineField({name: 'url', title: 'Media Library URL', type: 'url', readOnly: true}),
       ],
     }),
   ],

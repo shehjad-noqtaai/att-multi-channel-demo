@@ -14,11 +14,15 @@ export type View =
   | {kind: 'edit'; briefId: string | 'new'}
   | {kind: 'matrix'; briefId: string}
 
+/** Strip a `drafts.` prefix — variations reference the canonical (published) id. */
+const canonicalId = (id: string) => id.replace(/^drafts\./, '')
+
 export interface AppConfig {
   channels: ChannelDoc[]
   segments: SegmentDoc[]
   mergeFields: MergeFieldDoc[]
   products: Array<{_id: string; name?: string; price?: string}>
+  mediaAssets: Array<{_id: string; title?: string; description?: string; assetRef?: string; url?: string}>
 }
 
 export function CampaignStudio() {
@@ -41,6 +45,7 @@ export function CampaignStudio() {
           segments: r.segments || [],
           mergeFields: r.mergeFields || [],
           products: r.products || [],
+          mediaAssets: r.mediaAssets || [],
         })
       })
       .catch((e: unknown) => {
@@ -50,7 +55,9 @@ export function CampaignStudio() {
     return () => {
       cancelled = true
     }
-  }, [client, toast])
+    // refreshTick re-runs config (incl. mediaAssets) after edits so newly
+    // browsed/added library assets propagate to the hero picker.
+  }, [client, toast, refreshTick])
 
   const refresh = useCallback(() => setRefreshTick((t) => t + 1), [])
 
@@ -106,8 +113,8 @@ export function CampaignStudio() {
             <BriefList
               key={refreshTick}
               config={config}
-              onEdit={(id) => setView({kind: 'edit', briefId: id})}
-              onMatrix={(id) => setView({kind: 'matrix', briefId: id})}
+              onEdit={(id) => setView({kind: 'edit', briefId: canonicalId(id)})}
+              onMatrix={(id) => setView({kind: 'matrix', briefId: canonicalId(id)})}
               onCreate={() => setView({kind: 'edit', briefId: 'new'})}
             />
           ) : view.kind === 'edit' ? (
@@ -129,8 +136,11 @@ export function CampaignStudio() {
             <MatrixView
               briefId={view.briefId}
               config={config}
-              onEdit={(id) => setView({kind: 'edit', briefId: id})}
-              onBack={() => setView({kind: 'list'})}
+              onEdit={(id) => setView({kind: 'edit', briefId: canonicalId(id)})}
+              onBack={() => {
+                refresh()
+                setView({kind: 'list'})
+              }}
             />
           )}
         </Box>

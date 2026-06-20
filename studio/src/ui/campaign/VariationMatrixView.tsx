@@ -1,8 +1,8 @@
 // studio/src/ui/campaign/VariationMatrixView.tsx
 //
 // Document view on campaignBrief — fetches contentVariation docs and renders
-// them as a (segment × channel) matrix for promotional campaigns, or a stacked
-// per-step layout for abandoned-cart flows (all steps visible at once, scroll
+// them as a (segment × channel) matrix for single-step campaigns, or a stacked
+// per-step layout for multi-step flows (all steps visible at once, scroll
 // not click — Shehjad's pass-7 ask).
 //
 // Each cell shows: status chip + "out of date" badge + the right channel preview
@@ -32,6 +32,7 @@ import {PhoneSmsBubble} from './previews/PhoneSmsBubble'
 import {TokenLegend, type TokenMode} from './previews/TokenText'
 import {CellViewDialog} from './CellViewDialog'
 import type {MergeField, MinimalBrief} from '../../personalization/generate/tokens'
+import {webHeroForCell} from './previews/previewCommon'
 
 const API_VERSION = '2024-10-01'
 
@@ -44,7 +45,7 @@ interface FetchedBrief {
   _id: string
   _rev?: string
   title?: string
-  campaignType?: 'promotional' | 'abandoned-cart' | string
+  multiStep?: boolean
   offer?: string
   featuredProduct?: {_ref?: string}
   targetChannels?: Array<{_id: string; key: 'web' | 'email' | 'sms'; title?: string}>
@@ -78,7 +79,7 @@ interface FetchedVariation {
 }
 
 const BRIEF_QUERY = `*[_id == $id || _id == "drafts." + $id][0]{
-  _id, _rev, title, campaignType, offer, featuredProduct,
+  _id, _rev, title, multiStep, offer, featuredProduct,
   "targetChannels": targetChannels[]->{_id, key, title},
   "targetSegments": targetSegments[]->{_id, key, title, brand, brandColor},
   "flowSteps": flowSteps[]{
@@ -152,6 +153,7 @@ function Cell({
   segment,
   channel,
   variation,
+  allVariations,
   mergeFields,
   tokenMode,
   stepKey,
@@ -163,6 +165,7 @@ function Cell({
   segment: NonNullable<FetchedBrief['targetSegments']>[number]
   channel: {_id: string; key: 'web' | 'email' | 'sms'; title?: string}
   variation: FetchedVariation | undefined
+  allVariations: FetchedVariation[]
   mergeFields: MergeField[]
   tokenMode: TokenMode
   stepKey?: string
@@ -188,7 +191,7 @@ function Cell({
       tone="transparent"
       style={{
         border: '1px dashed var(--card-border-color, #d1d5db)',
-        aspectRatio: channel.key === 'web' ? '16 / 9' : channel.key === 'email' ? '4 / 5' : '9 / 16',
+        aspectRatio: channel.key === 'sms' ? '9 / 16' : '4 / 5',
         minHeight: 160,
         display: 'flex',
         alignItems: 'center',
@@ -247,6 +250,7 @@ function Cell({
       <EmailClientMock
         client={client}
         email={variation.email as never}
+        heroImage={webHeroForCell(allVariations, segment.key, stepKey ?? 'default')}
         brand={brand}
         brandColor={brandColor}
         brief={brief}
@@ -416,6 +420,7 @@ function MatrixGrid({
                 segment={seg}
                 channel={ch}
                 variation={findVariation(variations, ch.key, seg.key, flowStep)}
+                allVariations={variations}
                 mergeFields={mergeFields}
                 tokenMode={tokenMode}
                 stepKey={flowStep === 'default' ? undefined : flowStep}
@@ -528,7 +533,7 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
   }
 
   const segments = brief.targetSegments ?? []
-  const isAbandonedCart = brief.campaignType === 'abandoned-cart'
+  const isAbandonedCart = !!brief.multiStep
 
   const briefForTokens: {
     _id: string
@@ -564,7 +569,7 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
             <Heading size={1}>{brief.title ?? '(untitled brief)'}</Heading>
             <Inline space={2}>
               <Badge tone={isAbandonedCart ? 'primary' : 'positive'} mode="outline">
-                {brief.campaignType}
+                {isAbandonedCart ? 'Multi-step' : 'Single-step'}
               </Badge>
               <Badge mode="outline">
                 {segments.length} segment{segments.length === 1 ? '' : 's'}
@@ -630,7 +635,15 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
           brandColor={dialogReq.segment.brandColor}
           stepKey={dialogReq.stepKey}
           stepIntent={dialogReq.stepIntent}
-          web={dialogReq.variation.web as never}
+          web={
+            (dialogReq.variation.web ??
+              variations.find(
+                (v) =>
+                  v.channel === 'web' &&
+                  v.segment === dialogReq.segment.key &&
+                  (v.flowStep ?? 'default') === (dialogReq.stepKey ?? 'default'),
+              )?.web) as never
+          }
           email={dialogReq.variation.email as never}
           sms={dialogReq.variation.sms as never}
           brief={briefForTokens}

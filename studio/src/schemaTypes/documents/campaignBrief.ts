@@ -1,20 +1,24 @@
 import {defineType, defineField} from 'sanity'
+import {CAMPAIGN_BRIEF_FIELDS, CAMPAIGN_BRIEF_GROUPS} from '../meta/campaignBriefMeta'
+
+const F = CAMPAIGN_BRIEF_FIELDS
+const G = CAMPAIGN_BRIEF_GROUPS
 
 /**
  * campaignBrief — the marketer's input. One brief → many variations.
  *
  * Field groups: Brief / Constraints / Targeting / Flow.
- * The flowSteps field is hidden unless campaignType === 'abandoned-cart'.
+ * The flowSteps field is hidden unless `multiStep` is enabled.
  */
 export const campaignBrief = defineType({
   name: 'campaignBrief',
   title: 'Campaign brief',
   type: 'document',
   groups: [
-    {name: 'brief', title: 'Brief', default: true},
-    {name: 'constraints', title: 'Constraints'},
-    {name: 'targeting', title: 'Targeting'},
-    {name: 'flow', title: 'Flow'},
+    {name: G.brief.name, title: G.brief.title, default: true},
+    {name: G.constraints.name, title: G.constraints.title},
+    {name: G.targeting.name, title: G.targeting.title},
+    {name: G.flow.name, title: G.flow.title},
   ],
   fields: [
     defineField({
@@ -31,19 +35,13 @@ export const campaignBrief = defineType({
       group: 'brief',
     }),
     defineField({
-      name: 'campaignType',
-      title: 'Campaign type',
-      type: 'string',
-      description: 'Drives which fields show and how the matrix is dimensioned.',
-      initialValue: 'promotional',
-      options: {
-        list: [
-          {title: 'Promotional (one-shot)', value: 'promotional'},
-          {title: 'Abandoned cart (multi-step flow)', value: 'abandoned-cart'},
-        ],
-      },
+      name: 'multiStep',
+      title: 'Multi-step flow',
+      type: 'boolean',
+      description:
+        'Off = a single send per channel × segment. On = an ordered, timed sequence; reveals Flow steps and dimensions the matrix per step.',
+      initialValue: false,
       group: 'brief',
-      validation: (rule) => rule.required(),
     }),
     defineField({
       name: 'summary',
@@ -91,6 +89,27 @@ export const campaignBrief = defineType({
       group: 'constraints',
     }),
     defineField({
+      name: F.allowedMedia.name,
+      title: F.allowedMedia.title,
+      type: 'array',
+      of: [{type: 'reference', to: [{type: 'mediaAsset'}]}],
+      description: F.allowedMedia.description,
+      group: F.allowedMedia.group,
+      validation: (rule) =>
+        rule.custom(async (value, context) => {
+          const doc = context.document as {targetChannels?: Array<{_ref?: string}>; flowSteps?: unknown[]}
+          const channelRefs = doc?.targetChannels ?? []
+          if (channelRefs.length === 0) return true
+          const client = context.getClient({apiVersion: '2024-10-01'})
+          const webChannel = await client.fetch(`*[_id == "channel-web"][0]._id`)
+          const targetsWeb = channelRefs.some((r) => r._ref === webChannel)
+          if (targetsWeb && (!value || value.length === 0)) {
+            return 'Attach at least one allowed media asset when Web is a target channel.'
+          }
+          return true
+        }),
+    }),
+    defineField({
       name: 'targetChannels',
       title: 'Target channels',
       type: 'array',
@@ -127,10 +146,53 @@ export const campaignBrief = defineType({
       of: [{type: 'flowStep'}],
       description: 'Ordered recovery sequence. Variations are generated per step × channel × segment.',
       group: 'flow',
-      hidden: ({document}) => document?.campaignType !== 'abandoned-cart',
+      hidden: ({document}) => !document?.multiStep,
+    }),
+    defineField({
+      name: 'archived',
+      title: 'Archived',
+      type: 'boolean',
+      description:
+        'When archived, every generated variation for this campaign is unpublished. Toggled via "Archive campaign" in the app; reversible.',
+      initialValue: false,
+      group: 'brief',
+    }),
+    defineField({
+      name: 'releaseTitle',
+      title: 'Release name',
+      type: 'string',
+      description:
+        'Name for the content release that Generate stages variations into. Leave blank to use "<brief title> — generated variations".',
+      group: 'brief',
+    }),
+    defineField({
+      name: 'releaseType',
+      title: 'Release type',
+      type: 'string',
+      options: {
+        list: [
+          {title: 'ASAP — publish whenever promoted', value: 'asap'},
+          {title: 'Undecided — no target date', value: 'undecided'},
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'asap',
+      group: 'brief',
+    }),
+    defineField({
+      name: 'generationReleaseId',
+      title: 'Generation release',
+      type: 'string',
+      description:
+        'Pointer to the ongoing content release that Generate writes variations into for review before publishing. Managed automatically.',
+      readOnly: true,
+      group: 'brief',
     }),
   ],
   preview: {
-    select: {title: 'title', subtitle: 'campaignType'},
+    select: {title: 'title', multiStep: 'multiStep'},
+    prepare({title, multiStep}) {
+      return {title: title ?? '(untitled)', subtitle: multiStep ? 'Multi-step' : 'Single-step'}
+    },
   },
 })

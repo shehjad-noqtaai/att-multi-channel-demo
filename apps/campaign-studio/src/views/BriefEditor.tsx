@@ -9,6 +9,11 @@ import {BRIEF_DETAIL_QUERY} from '../queries'
 import type {AppConfig} from '../CampaignStudio'
 import type {CampaignBrief, FlowStep} from '../types'
 import {GenerateDialog} from './GenerateDialog'
+import {MediaLibraryField} from '../components/MediaLibraryField'
+import {
+  CAMPAIGN_BRIEF_FIELDS as F,
+  CAMPAIGN_BRIEF_GROUPS as G,
+} from '@studio/schemaTypes/meta/campaignBriefMeta'
 
 interface BriefEditorProps {
   briefId: string | 'new'
@@ -21,7 +26,7 @@ function emptyBrief(): CampaignBrief {
   return {
     _id: `brief-${Date.now().toString(36)}`,
     _type: 'campaignBrief',
-    campaignType: 'promotional',
+    multiStep: false,
     title: '',
     summary: '',
   }
@@ -59,7 +64,9 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
 
   const valid = useMemo(() => {
     if (!brief) return false
-    return !!(brief.title && brief.title.trim() && brief.summary && brief.summary.trim() && brief.campaignType)
+    // Media is optional: when no allowed media is attached, generation simply
+    // skips the hero image rather than blocking.
+    return !!(brief.title && brief.title.trim() && brief.summary && brief.summary.trim())
   }, [brief])
 
   if (loadError) {
@@ -86,18 +93,25 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
 
   async function save(thenAction?: 'generate' | 'matrix') {
     if (!brief || !valid) {
-      toast.push({status: 'warning', title: 'Required fields missing', description: 'Title, summary, and campaign type are required.'})
+      toast.push({
+        status: 'warning',
+        title: 'Required fields missing',
+        description: 'Title, summary, and campaign type are required.',
+      })
       return
     }
     setSaving(true)
     try {
-      // Strip _rev so createOrReplace works against either draft or published.
-      // Use the draft id so edits land as drafts (matches Studio conventions).
-      const cleanId = brief._id.startsWith('drafts.') ? brief._id : brief._id
+      // Briefs are published-only: variations reference the canonical (non-draft)
+      // brief id, so a draft-only brief breaks variation counts, the matrix, and
+      // delete. Always write to the canonical id and discard any draft twin.
+      const cleanId = brief._id.replace(/^drafts\./, '')
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const {_rev, ...doc} = brief
       await client.createOrReplace({...doc, _id: cleanId, _type: 'campaignBrief'} as any)
-      toast.push({status: 'success', title: 'Saved', description: brief.title || brief._id})
+      // Remove a lingering draft so the published doc is the single source.
+      await client.delete(`drafts.${cleanId}`).catch(() => {})
+      toast.push({status: 'success', title: 'Saved', description: brief.title || cleanId})
       if (thenAction === 'generate') {
         setGenerateOpen(true)
       } else if (thenAction === 'matrix') {
@@ -110,7 +124,7 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
     }
   }
 
-  const isAbandonedCart = brief.campaignType === 'abandoned-cart'
+  const isMultiStep = !!brief.multiStep
 
   return (
     <Stack space={4}>
@@ -127,23 +141,26 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
 
       <Card padding={4} radius={2} shadow={1}>
         <Stack space={4}>
-          <SectionHeading title="Brief" />
+          <SectionHeading title={G.brief.title} />
 
-          <FieldRow label="Title" required>
+          <FieldRow label={F.title.title} required>
             <TextInput value={brief.title ?? ''} onChange={(e) => update('title', e.currentTarget.value)} />
           </FieldRow>
 
-          <FieldRow label="Campaign type" required>
-            <Select
-              value={brief.campaignType}
-              onChange={(e) => update('campaignType', e.currentTarget.value as CampaignBrief['campaignType'])}
-            >
-              <option value="promotional">Promotional (one-shot)</option>
-              <option value="abandoned-cart">Abandoned cart (multi-step)</option>
-            </Select>
+          <FieldRow label={F.multiStep.title}>
+            <Flex align="center" gap={3}>
+              <Checkbox
+                id="multiStep"
+                checked={!!brief.multiStep}
+                onChange={(e) => update('multiStep', e.currentTarget.checked)}
+              />
+              <Text size={1} muted>
+                {F.multiStep.description}
+              </Text>
+            </Flex>
           </FieldRow>
 
-          <FieldRow label="Goal">
+          <FieldRow label={F.goal.title}>
             <Select
               value={brief.goal || ''}
               onChange={(e) => update('goal', e.currentTarget.value || undefined)}
@@ -157,20 +174,20 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
             </Select>
           </FieldRow>
 
-          <FieldRow label="Summary" required>
+          <FieldRow label={F.summary.title} required>
             <TextArea rows={4} value={brief.summary ?? ''} onChange={(e) => update('summary', e.currentTarget.value)} />
           </FieldRow>
 
-          <FieldRow label="Offer">
+          <FieldRow label={F.offer.title}>
             <TextArea
               rows={2}
               value={brief.offer ?? ''}
               onChange={(e) => update('offer', e.currentTarget.value)}
             />
-            <Text size={0} muted>Also exposed as the Sanity-resolved {'{'}{'{'}offer.amount{'}'}{'}'} token.</Text>
+            <Text size={0} muted>{F.offer.description}</Text>
           </FieldRow>
 
-          <FieldRow label="Landing URL base">
+          <FieldRow label={F.landingUrlBase.title}>
             <TextInput
               value={brief.landingUrlBase ?? ''}
               onChange={(e) => update('landingUrlBase', e.currentTarget.value || undefined)}
@@ -182,42 +199,62 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
 
       <Card padding={4} radius={2} shadow={1}>
         <Stack space={4}>
-          <SectionHeading title="Constraints" />
-          <FieldRow label="Key messages">
+          <SectionHeading title={G.constraints.title} />
+          <FieldRow label={F.keyMessages.title}>
             <StringArrayEditor
               value={brief.keyMessages || []}
               onChange={(v) => update('keyMessages', v)}
               placeholder="A must-include talking point…"
             />
           </FieldRow>
-          <FieldRow label="Mandatory disclaimers">
+          <FieldRow label={F.mandatoryDisclaimers.title}>
             <StringArrayEditor
               value={brief.mandatoryDisclaimers || []}
               onChange={(v) => update('mandatoryDisclaimers', v)}
               placeholder="Legal copy verbatim…"
             />
           </FieldRow>
+          <FieldRow label={F.allowedMedia.title}>
+            <MediaLibraryField
+              client={client}
+              value={brief.allowedMedia?.map((r) => r._ref) || []}
+              onChange={(ids) =>
+                update(
+                  'allowedMedia',
+                  ids.map((_ref) => ({_type: 'reference', _ref, _key: _ref})),
+                )
+              }
+            />
+            <Text size={0} muted>
+              {F.allowedMedia.description}
+            </Text>
+            {F.allowedMedia.hint ? (
+              <Text size={0} muted>
+                {F.allowedMedia.hint}
+              </Text>
+            ) : null}
+          </FieldRow>
         </Stack>
       </Card>
 
       <Card padding={4} radius={2} shadow={1}>
         <Stack space={4}>
-          <SectionHeading title="Targeting" />
-          <FieldRow label="Target channels">
+          <SectionHeading title={G.targeting.title} />
+          <FieldRow label={F.targetChannels.title}>
             <RefMultiselect
               options={config.channels.map((c) => ({_id: c._id, label: c.title || c.key}))}
               value={brief.targetChannels?.map((r) => r._ref) || []}
               onChange={(ids) => update('targetChannels', ids.map((_ref) => ({_ref})))}
             />
           </FieldRow>
-          <FieldRow label="Target segments">
+          <FieldRow label={F.targetSegments.title}>
             <RefMultiselect
               options={config.segments.map((s) => ({_id: s._id, label: `${s.title || s.key} · ${s.brand || ''}`}))}
               value={brief.targetSegments?.map((r) => r._ref) || []}
               onChange={(ids) => update('targetSegments', ids.map((_ref) => ({_ref})))}
             />
           </FieldRow>
-          <FieldRow label="Featured product">
+          <FieldRow label={F.featuredProduct.title}>
             <Select
               value={brief.featuredProduct?._ref || ''}
               onChange={(e) =>
@@ -233,12 +270,41 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
         </Stack>
       </Card>
 
-      {isAbandonedCart && (
+      <Card padding={4} radius={2} shadow={1}>
+        <Stack space={4}>
+          <SectionHeading title="Content release" />
+          <Text size={1} muted>
+            Generate stages variations into a content release for review before they go live.
+            {brief.generationReleaseId ? ` Current release: ${brief.generationReleaseId}.` : ''}
+          </Text>
+          <FieldRow label="Release name">
+            <TextInput
+              value={brief.releaseTitle || ''}
+              placeholder={`${brief.title || 'Campaign'} — generated variations`}
+              onChange={(e) => update('releaseTitle', e.currentTarget.value)}
+            />
+            <Text size={0} muted>
+              Leave blank to use the default. Renaming applies to the current release on the next Generate.
+            </Text>
+          </FieldRow>
+          <FieldRow label="Release type">
+            <Select
+              value={brief.releaseType || 'asap'}
+              onChange={(e) => update('releaseType', e.currentTarget.value as CampaignBrief['releaseType'])}
+            >
+              <option value="asap">ASAP — publish whenever promoted</option>
+              <option value="undecided">Undecided — no target date</option>
+            </Select>
+          </FieldRow>
+        </Stack>
+      </Card>
+
+      {isMultiStep && (
         <Card padding={4} radius={2} shadow={1} tone="primary">
           <Stack space={4}>
             <Flex align="center" gap={2}>
-              <SectionHeading title="Flow steps" />
-              <Badge tone="primary">Abandoned cart</Badge>
+              <SectionHeading title={F.flowSteps.title} />
+              <Badge tone="primary">Multi-step</Badge>
             </Flex>
             <Text size={1} muted>Variations are generated per step × channel × segment.</Text>
             <FlowStepsEditor
