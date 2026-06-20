@@ -22,6 +22,8 @@ export interface PromptChannel {
   key: ChannelKey
   title: string
   constraints?: string
+  /** Optional hard cap (e.g. SMS 600). Used by the SMS concision directive. */
+  maxLength?: number
 }
 
 export interface PromptSegment {
@@ -102,9 +104,13 @@ export function buildPrompt(args: BuildPromptArgs): BuildPromptResult {
       : 'Leave the ctaUrl field blank — it is set automatically to the personalized offer page after generation. Focus on a compelling ctaLabel.'
 
   // Concision directive — long legal/T&C text belongs on the linked terms page,
-  // not inline in the channel message.
+  // not inline in the channel message. SMS gets a HARD explicit length ceiling
+  // because past runs showed the model ignoring soft "stay under the limit"
+  // guidance and emitting 333–463 char messages against a 250 cap.
   const concisionDirective =
-    'Keep the message tightly focused on THIS offer. Do NOT inline long legal/T&C text — a separate "See full terms" page will host disclaimers; the message just needs to deliver the offer + CTA. Stay well under the channel character limit; leave headroom.'
+    channel.key === 'sms' && channel.maxLength
+      ? `SMS LENGTH IS A HARD CONSTRAINT. The sms.message field MUST be at most ${channel.maxLength} characters total, INCLUDING spaces and punctuation. AIM for ${Math.max(50, channel.maxLength - 100)} characters or fewer to leave headroom. Do NOT inline any disclaimers, terms, legal copy, or long brand context — a "View offer" link is appended automatically and the linked page hosts all of that. Count your characters. If your draft is over ${channel.maxLength}, cut it down before returning. Messages over the limit will be rejected.`
+      : 'Keep the message tightly focused on THIS offer. Do NOT inline long legal/T&C text — a separate "See full terms" page will host disclaimers; the message just needs to deliver the offer + CTA. Stay well under the channel character limit; leave headroom.'
 
   const instruction =
     `You are writing $channelTitle marketing copy for the $brand brand, targeting "$segmentTitle".\n` +
