@@ -200,7 +200,22 @@ async function main() {
       console.log(`  → promoting release ${result.releaseId}…`)
       try {
         await publishBriefRelease(client, b._id, result.releaseId)
-        console.log(`  ✓ release ${result.releaseId} published`)
+        const publishedCount = await client.fetch<number>(
+          'count(*[_type == "contentVariation" && brief._ref == $id])',
+          {id: b._id},
+        )
+        const webCount = await client.fetch<number>(
+          'count(*[_type == "contentVariation" && channel == "web" && brief._ref == $id])',
+          {id: b._id},
+        )
+        console.log(
+          `  ✓ release ${result.releaseId} published (${publishedCount} variation${publishedCount === 1 ? '' : 's'}, ${webCount} web)`,
+        )
+        if (publishedCount === 0) {
+          console.warn(
+            '  ⚠ no published variations visible after promote — check dataset read access / release state',
+          )
+        }
       } catch (e) {
         console.log(`  ✗ release publish failed: ${e instanceof Error ? e.message : String(e)}`)
       }

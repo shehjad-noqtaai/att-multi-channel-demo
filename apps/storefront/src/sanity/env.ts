@@ -20,5 +20,9 @@ export const dataset = required(
 export const apiVersion =
   process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2024-10-01'
 
+// Server-only read token. Required when the dataset is not publicly readable
+// (common on org projects). Never prefix with NEXT_PUBLIC_.
+export const readToken = process.env.SANITY_API_READ_TOKEN
+
 export const storefrontBaseUrl =
   process.env.NEXT_PUBLIC_STOREFRONT_BASE_URL || 'http://localhost:3000'

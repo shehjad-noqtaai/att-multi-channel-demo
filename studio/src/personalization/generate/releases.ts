@@ -154,6 +154,23 @@ export async function upsertVersion(
   }
 }
 
+async function waitForReleasePublished(c: SanityClient, releaseId: string): Promise<void> {
+  const deadline = Date.now() + 60_000
+  while (Date.now() < deadline) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const release = await (c as any).releases.get({releaseId})
+    if (release?.state === 'published') return
+    if (release?.error) {
+      throw new Error(`Release ${releaseId} publish failed: ${String(release.error)}`)
+    }
+    if (release?.state === 'archived') {
+      throw new Error(`Release ${releaseId} was archived before publish completed`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+  throw new Error(`Timed out waiting for release ${releaseId} to publish`)
+}
+
 /** Publish (promote) the brief's release, then clear the brief pointer. */
 export async function publishBriefRelease(
   client: SanityClient,
@@ -162,7 +179,8 @@ export async function publishBriefRelease(
 ): Promise<void> {
   const c = releasesClient(client)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (c as any).action({actionType: 'sanity.action.release.publish', releaseId})
+  await (c as any).releases.publish({releaseId})
+  await waitForReleasePublished(c, releaseId)
   await clearReleasePointer(c, briefId)
 }
 
