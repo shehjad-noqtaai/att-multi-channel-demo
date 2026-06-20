@@ -92,6 +92,20 @@ export function buildPrompt(args: BuildPromptArgs): BuildPromptResult {
       ? 'Do NOT set or generate a hero image — none are allowed on this brief.'
       : ''
 
+  // URL/link directive — we own the deep-link, the model must not author it.
+  // For SMS the link is appended after this directive runs (see orchestrate.ts
+  // buildOfferUrl). For web/email the ctaUrl is the same deal — leave it blank
+  // and we'll set it deterministically.
+  const urlDirective =
+    channel.key === 'sms'
+      ? 'Do NOT write any URLs or links in the message text — sms.link is set automatically. Leave sms.link blank; we set it after generation. End the message with "View offer:" (no URL after) so the system can append the link cleanly.'
+      : 'Leave the ctaUrl field blank — it is set automatically to the personalized offer page after generation. Focus on a compelling ctaLabel.'
+
+  // Concision directive — long legal/T&C text belongs on the linked terms page,
+  // not inline in the channel message.
+  const concisionDirective =
+    'Keep the message tightly focused on THIS offer. Do NOT inline long legal/T&C text — a separate "See full terms" page will host disclaimers; the message just needs to deliver the offer + CTA. Stay well under the channel character limit; leave headroom.'
+
   const instruction =
     `You are writing $channelTitle marketing copy for the $brand brand, targeting "$segmentTitle".\n` +
     `Campaign brief: $brief\n` +
@@ -104,6 +118,8 @@ export function buildPrompt(args: BuildPromptArgs): BuildPromptResult {
     `Include these disclaimers verbatim, unedited: $disclaimers\n` +
     `For product, pricing, cart, and customer-specific values you do NOT own, insert the exact token (e.g. {{product.name}}) — never invent these values. Available tokens: $tokens\n` +
     `Write only the $channel content fields; stay within all length limits.\n` +
+    concisionDirective + '\n' +
+    urlDirective + '\n' +
     mediaDirective
 
   const instructionParams: Record<string, InstructionParam> = {

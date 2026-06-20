@@ -49,7 +49,7 @@ export const generateVariationsAction: DocumentActionComponent = (props: Documen
     let lastDone = 0
     let lastTotal = 0
     try {
-      const cells = await generateMatrix(client, {
+      const {cells} = await generateMatrix(client, {
         briefId,
         onProgress: (p: ProgressEvent) => {
           lastDone = p.done
