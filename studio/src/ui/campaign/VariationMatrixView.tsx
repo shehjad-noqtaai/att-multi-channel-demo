@@ -250,7 +250,7 @@ function Cell({
       <EmailClientMock
         client={client}
         email={variation.email as never}
-        heroImage={webHeroForCell(allVariations, segment.key, stepKey ?? 'default')}
+        heroImage={webHeroForCell(allVariations as never, segment.key, stepKey ?? 'default')}
         brand={brand}
         brandColor={brandColor}
         brief={brief}

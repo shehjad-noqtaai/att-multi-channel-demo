@@ -9,7 +9,7 @@ export const smsContent = defineType({
       name: 'message',
       type: 'text',
       rows: 3,
-      validation: (rule) => rule.required().max(160).error('SMS must be ≤160 characters.'),
+      validation: (rule) => rule.required().max(250).error('SMS must be ≤250 characters.'),
     }),
     defineField({name: 'link', type: 'url'}),
   ],

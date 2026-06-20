@@ -70,12 +70,35 @@ export interface GenerateMatrixArgs {
   segments?: string[]
   /** Abandoned-cart only — filter to these flowStep stepKeys. */
   steps?: string[]
+  /**
+   * Optional base URL for the personalized storefront. When provided AND the
+   * brief has a `slug`, orchestrate writes deterministic deep-links onto each
+   * variation: `sms.link` and `web/email.ctaUrl` are set to
+   * `<storefrontBaseUrl>/offer/<slug>/<segmentKey>`. The model is instructed
+   * NOT to author the URL (models garble URLs); we own it.
+   *
+   * Example: `https://att-storefront.example.com` — no trailing slash.
+   */
+  storefrontBaseUrl?: string
   onProgress?: (p: ProgressEvent) => void
+}
+
+/**
+ * Build the deterministic per-persona offer URL the orchestrator writes onto
+ * every variation. Centralised so the storefront app can use the same builder.
+ */
+export function buildOfferPath(slug: string, segmentKey: string): string {
+  return `/offer/${slug}/${segmentKey}`
+}
+
+export function buildOfferUrl(base: string, slug: string, segmentKey: string): string {
+  const cleanBase = base.replace(/\/+$/, '')
+  return `${cleanBase}${buildOfferPath(slug, segmentKey)}`
 }
 
 /** GROQ projection used by generateMatrix; kept here so tests can read it. */
 export const BRIEF_QUERY = `*[_id == $id || _id == "drafts." + $id][0]{
-  _id, _rev, _type, title, multiStep, summary, offer, keyMessages, mandatoryDisclaimers,
+  _id, _rev, _type, title, "slug": slug.current, multiStep, summary, offer, keyMessages, mandatoryDisclaimers,
   featuredProduct, generationReleaseId, releaseTitle, releaseType,
   "targetChannels": targetChannels[]->{_id, key, title, constraints, maxLength},
   "targetSegments": targetSegments[]->{_id, key, title, brand, brandVoice, audienceProfile, brandDisclaimers},
@@ -96,6 +119,7 @@ interface FetchedBrief {
   _rev?: string
   _type?: string
   title?: string
+  slug?: string
   generationReleaseId?: string
   releaseTitle?: string
   releaseType?: 'asap' | 'scheduled' | 'undecided'
@@ -294,6 +318,25 @@ export async function generateMatrix(
         if (hero) {
           const web = (content.web as Record<string, unknown> | undefined) ?? {}
           versionDoc.web = {...web, heroImage: hero}
+        }
+      }
+
+      // Deterministic deep-link injection. We DO NOT trust the model to author
+      // URLs (LLMs garble them). When a storefront base + brief slug are both
+      // present, every cell gets its persona-specific offer URL: sms.link for
+      // SMS, ctaUrl for web and email. The model is instructed to leave these
+      // empty (see promptAssembly.ts mediaDirective / urlDirective).
+      if (args.storefrontBaseUrl && brief.slug) {
+        const offerUrl = buildOfferUrl(args.storefrontBaseUrl, brief.slug, segmentKey)
+        if (channelKey === 'sms') {
+          const sms = (versionDoc.sms as Record<string, unknown> | undefined) ?? (content.sms as Record<string, unknown> | undefined) ?? {}
+          versionDoc.sms = {...sms, link: offerUrl}
+        } else if (channelKey === 'web') {
+          const web = (versionDoc.web as Record<string, unknown> | undefined) ?? (content.web as Record<string, unknown> | undefined) ?? {}
+          versionDoc.web = {...web, ctaUrl: offerUrl}
+        } else if (channelKey === 'email') {
+          const email = (versionDoc.email as Record<string, unknown> | undefined) ?? (content.email as Record<string, unknown> | undefined) ?? {}
+          versionDoc.email = {...email, ctaUrl: offerUrl}
         }
       }
 

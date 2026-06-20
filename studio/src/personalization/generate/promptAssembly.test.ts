@@ -49,7 +49,11 @@ describe('buildPrompt', () => {
     expect(web.assignHeroFromMedia).toBe(true)
     expect(sms.instruction).not.toMatch(/allowed media/i)
     expect(web.instruction).toMatch(/Do NOT generate or invent hero images/i)
-    expect(web.instructionParams.allowedMedia?.value).toContain('image-abc')
+    const allowedMediaParam = web.instructionParams.allowedMedia
+    expect(allowedMediaParam?.type).toBe('constant')
+    if (allowedMediaParam?.type === 'constant') {
+      expect(allowedMediaParam.value).toContain('image-abc')
+    }
   })
 
   it('web without allowed media forbids hero image generation', () => {
