@@ -14,6 +14,9 @@
     "app:dev": "npm --workspace campaign-studio run dev",
     "app:build": "npm --workspace campaign-studio run build",
     "typecheck": "npm --workspaces --if-present run typecheck",
-    "test": "npm --workspaces --if-present run test"
+    "test": "npm --workspaces --if-present run test",
+    "storefront:dev": "npm --workspace storefront run dev",
+    "storefront:build": "npm --workspace storefront run build",
+    "storefront:start": "npm --workspace storefront run start"
   }
 }
