@@ -7,7 +7,13 @@ export const HOMEPAGE_QUERY = defineQuery(`*[_type == "storefrontHomepage" && _i
   primaryHero{
     enabled, slotStyle, label, defaultPersona, staticFallback,
     "campaignBrief": campaignBrief->{
-      _id, title, "slug": slug.current
+      _id, title, "slug": slug.current, multiStep
+    }
+  },
+  abandonedCartHero{
+    enabled, slotStyle, label, defaultPersona, staticFallback,
+    "campaignBrief": campaignBrief->{
+      _id, title, "slug": slug.current, multiStep
     }
   },
   personalizedBanners[]{

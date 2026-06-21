@@ -12,7 +12,7 @@ export const WEB_VARIATION_QUERY = defineQuery(`*[_type == "contentVariation"
   && status == "generated"
   && brief->slug.current == $brief
 ] | order(
-  select(flowStep == "default" => 0, 1) asc,
+  select(flowStep == "default" => 0, flowStep == $preferredFlowStep => 1, 2) asc,
   coalesce(generatedAt, _updatedAt) desc
 )[0]{
   _id,

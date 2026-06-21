@@ -26,6 +26,7 @@ export interface HomepagePersonalizedSlot {
     _id: string
     title?: string
     slug?: string
+    multiStep?: boolean
   } | null
 }
 
@@ -45,6 +46,7 @@ export interface StorefrontHomepage {
   title?: string
   promoBar?: HomepagePromoBar
   primaryHero?: HomepagePersonalizedSlot
+  abandonedCartHero?: HomepagePersonalizedSlot
   personalizedBanners?: HomepagePersonalizedSlot[]
   promoGridTitle?: string
   promoCards?: HomepagePromoCard[]

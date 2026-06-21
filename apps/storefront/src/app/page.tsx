@@ -8,8 +8,10 @@ import {AttHomeHero} from '@/components/home/AttHomeHero'
 import {AttHomeBanner} from '@/components/home/AttHomeBanner'
 import {AttPromoCardPersonalized, AttPromoCardStatic} from '@/components/home/AttPromoCard'
 import {HomepagePersonaPicker} from '@/components/home/HomepagePersonaPicker'
+import {HomepageCampaignPicker} from '@/components/home/HomepageCampaignPicker'
 import {AttFooter} from '@/components/home/AttFooter'
 import {PERSONAS} from '@/lib/personas'
+import {parseCampaignPreview, type CampaignPreviewKey} from '@/lib/campaignPreview'
 import type {PersonaKey} from '@/types'
 import type {StorefrontHomepage} from '@/types/homepage'
 
@@ -59,7 +61,7 @@ const DEFAULT_HOMEPAGE: StorefrontHomepage = {
 }
 
 interface PageProps {
-  searchParams: Promise<{persona?: string}>
+  searchParams: Promise<{persona?: string; campaign?: string}>
 }
 
 function parsePersona(value: string | undefined): PersonaKey {
@@ -67,23 +69,44 @@ function parsePersona(value: string | undefined): PersonaKey {
   return 'new'
 }
 
+function pickHeroSlot(cms: StorefrontHomepage, campaign: CampaignPreviewKey) {
+  if (campaign === 'abandoned-cart') {
+    return (
+      cms.abandonedCartHero ??
+      cms.personalizedBanners?.find((b) => b.campaignBrief?.slug === 'att-fiber-order-recovery') ??
+      cms.personalizedBanners?.[0]
+    )
+  }
+  return cms.primaryHero
+}
+
 export default async function HomePage({searchParams}: PageProps) {
-  const {persona: personaParam} = await searchParams
+  const {persona: personaParam, campaign: campaignParam} = await searchParams
   const persona = parsePersona(personaParam)
+  const campaign = parseCampaignPreview(campaignParam)
 
   const cms =
     (await sanityClient.fetch<StorefrontHomepage | null>(HOMEPAGE_QUERY, {})) ?? DEFAULT_HOMEPAGE
 
-  const primaryHero = await resolveHomepageSlot(cms.primaryHero, persona)
+  const heroSlot = pickHeroSlot(cms, campaign)
+  const primaryHero = await resolveHomepageSlot(heroSlot, persona)
 
-  const banners = (
-    await Promise.all((cms.personalizedBanners ?? []).map((b) => resolveHomepageSlot(b, persona)))
-  ).filter(Boolean)
+  const showAbandonedCartBanner = campaign === 'trade-in'
+  const banners = showAbandonedCartBanner
+    ? (
+        await Promise.all(
+          (cms.personalizedBanners ?? []).map((b) => resolveHomepageSlot(b, persona)),
+        )
+      ).filter(Boolean)
+    : []
+
+  const promoSlot =
+    campaign === 'abandoned-cart'
+      ? cms.abandonedCartHero ?? cms.personalizedBanners?.[0]
+      : cms.personalizedPromoSlots?.[0]
 
   const personalizedPromos = (
-    await Promise.all(
-      (cms.personalizedPromoSlots ?? []).map((s) => resolveHomepageSlot(s, persona)),
-    )
+    await Promise.all([promoSlot].map((s) => resolveHomepageSlot(s, persona)))
   ).filter(Boolean)
 
   return (
@@ -92,6 +115,7 @@ export default async function HomePage({searchParams}: PageProps) {
 
       <Suspense fallback={null}>
         <div className="att-home__persona-wrap">
+          <HomepageCampaignPicker active={campaign} />
           <HomepagePersonaPicker active={persona} />
         </div>
       </Suspense>
@@ -119,8 +143,8 @@ export default async function HomePage({searchParams}: PageProps) {
       <section className="att-home__demo-note">
         <div className="att-home__demo-note-inner">
           <p>
-            Switch persona above to see the hero and promo tiles swap to the matching published{' '}
-            <code>web</code> variation.{' '}
+            Use <strong>Campaign</strong> to switch between trade-in and abandoned-cart heroes.
+            Use <strong>Preview as</strong> to change the audience segment within that campaign.{' '}
             <Link href="/offers">Browse all personalized offers →</Link>
           </p>
         </div>

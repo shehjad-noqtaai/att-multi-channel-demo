@@ -46,6 +46,20 @@ async function main() {
         ctaUrl: 'https://www.att.com/',
       },
     },
+    abandonedCartHero: {
+      enabled: true,
+      slotStyle: 'hero',
+      label: 'Abandoned cart hero — Fiber recovery',
+      campaignBrief: ref('brief-fiber-cart-recovery'),
+      defaultPersona: 'new',
+      staticFallback: {
+        eyebrow: 'AT&T Fiber',
+        headline: 'Your AT&T Fiber order is saved and ready when you are',
+        subheadline: 'Pick up where you left off — complete your order in minutes.',
+        ctaLabel: 'Complete my order',
+        ctaUrl: 'https://www.att.com/internet/fiber/',
+      },
+    },
     personalizedBanners: [
       {
         _key: 'banner-fiber',

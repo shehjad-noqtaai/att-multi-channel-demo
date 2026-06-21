@@ -25,7 +25,12 @@ interface PageProps {
 }
 
 async function loadVariation(brief: string, persona: string): Promise<WebVariation | null> {
-  return sanityClient.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {brief, persona})
+  const preferredFlowStep = brief === 'att-fiber-order-recovery' ? 'reminder' : 'default'
+  return sanityClient.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
+    brief,
+    persona,
+    preferredFlowStep,
+  })
 }
 
 export async function generateMetadata({params}: PageProps): Promise<Metadata> {

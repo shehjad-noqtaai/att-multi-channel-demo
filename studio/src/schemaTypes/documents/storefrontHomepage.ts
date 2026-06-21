@@ -18,10 +18,17 @@ export const storefrontHomepage = defineType({
     }),
     defineField({
       name: 'primaryHero',
-      title: 'Primary hero',
+      title: 'Primary hero (promotional)',
       type: 'homepagePersonalizedSlot',
       description:
-        'Main homepage hero. Copy and imagery resolve from the linked brief’s published web variation.',
+        'Default homepage hero — typically the promotional / trade-in brief.',
+    }),
+    defineField({
+      name: 'abandonedCartHero',
+      title: 'Abandoned cart hero',
+      type: 'homepagePersonalizedSlot',
+      description:
+        'Hero shown when the storefront preview is switched to the abandoned-cart campaign.',
     }),
     defineField({
       name: 'personalizedBanners',

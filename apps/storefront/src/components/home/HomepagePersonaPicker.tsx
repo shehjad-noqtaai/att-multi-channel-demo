@@ -17,6 +17,9 @@ export function HomepagePersonaPicker({active}: {active: PersonaKey}) {
           const meta = PERSONAS[key]
           const params = new URLSearchParams(searchParams.toString())
           params.set('persona', key)
+          if (searchParams.get('campaign')) {
+            params.set('campaign', searchParams.get('campaign')!)
+          }
           const href = `${pathname}?${params.toString()}`
           const isActive = key === active
           return (

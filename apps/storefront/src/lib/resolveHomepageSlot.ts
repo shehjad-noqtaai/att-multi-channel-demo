@@ -71,14 +71,19 @@ async function fromVariation(
 export async function resolveHomepageSlot(
   slot: HomepagePersonalizedSlot | undefined | null,
   persona: PersonaKey,
+  options?: {preferredFlowStep?: string},
 ): Promise<ResolvedHomepageSlot | null> {
   if (!slot?.enabled) return null
 
   const briefSlug = slot.campaignBrief?.slug
   if (briefSlug) {
+    const preferredFlowStep =
+      options?.preferredFlowStep ?? (slot.campaignBrief?.multiStep ? 'reminder' : 'default')
+
     const variation = await sanityClient.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
       brief: briefSlug,
       persona,
+      preferredFlowStep,
     })
     if (variation?.web) {
       const resolved = await fromVariation(slot, variation, persona)
