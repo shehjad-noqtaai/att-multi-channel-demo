@@ -5,7 +5,7 @@ import {useClient, useCurrentUser} from '@sanity/sdk-react'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import {useState, useMemo} from 'react'
 import type {SanityClient} from '@sanity/client'
-import {generateMatrix, type ChannelKey, type ProgressEvent} from '@studio/personalization/generate/orchestrate'
+import {generateMatrix, type ChannelKey, type GenerationTarget, type ProgressEvent} from '@studio/personalization/generate/orchestrate'
 import type {AppConfig} from '../CampaignStudio'
 import type {CampaignBrief} from '../types'
 
@@ -57,6 +57,9 @@ export function GenerateDialog({
     stepKeys: briefStepKeys,
   })
 
+  const [target, setTarget] = useState<GenerationTarget>(
+    brief.defaultGenerationTarget === 'drafts' ? 'drafts' : 'release',
+  )
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<ProgressEvent | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -138,6 +141,7 @@ export function GenerateDialog({
       const briefIdClean = brief._id.replace(/^drafts\./, '')
       const result = await generateMatrix(writeClient, {
         briefId: briefIdClean,
+        target,
         channels: sel.channelKeys,
         segments: sel.segmentKeys,
         steps: isMultiStep ? sel.stepKeys : undefined,
@@ -147,13 +151,16 @@ export function GenerateDialog({
       const errors = result.cells.filter((c) => c.status === 'error').length
       const ok = result.cells.length - errors
       setDone({total: result.cells.length, errors})
+      const intoDrafts = result.target === 'drafts'
       toast.push({
         status: errors === 0 ? 'success' : 'warning',
         title:
           errors === 0
-            ? `Generated ${result.cells.length} cells into a release`
+            ? `Generated ${result.cells.length} cells ${intoDrafts ? 'as drafts' : 'into a release'}`
             : `Completed with ${errors} errors`,
-        description: `${ok} variation${ok === 1 ? '' : 's'} added to a content release — review in the matrix, then publish to promote.`,
+        description: intoDrafts
+          ? `${ok} variation${ok === 1 ? '' : 's'} written to drafts — review in the matrix, then publish.`
+          : `${ok} variation${ok === 1 ? '' : 's'} added to a content release — review in the matrix, then publish to promote.`,
       })
     } catch (e) {
       setError(String(e))
@@ -175,6 +182,35 @@ export function GenerateDialog({
 
           {!done && (
             <>
+              <Stack space={2}>
+                <Heading size={1}>Generate into</Heading>
+                <Card padding={3} radius={2} border>
+                  <Stack space={3}>
+                    <Flex gap={2} wrap="wrap">
+                      <Button
+                        text="Release"
+                        mode={target === 'release' ? 'default' : 'ghost'}
+                        tone={target === 'release' ? 'primary' : 'default'}
+                        disabled={running}
+                        onClick={() => setTarget('release')}
+                      />
+                      <Button
+                        text="Drafts"
+                        mode={target === 'drafts' ? 'default' : 'ghost'}
+                        tone={target === 'drafts' ? 'primary' : 'default'}
+                        disabled={running}
+                        onClick={() => setTarget('drafts')}
+                      />
+                    </Flex>
+                    <Text size={0} muted>
+                      {target === 'release'
+                        ? 'Stage variations into the brief’s content release — review the whole batch, then publish them all together.'
+                        : 'Write variations straight to drafts for quick iteration — no release is created. Publish them from the matrix when ready.'}
+                    </Text>
+                  </Stack>
+                </Card>
+              </Stack>
+
               <Stack space={2}>
                 <Flex justify="space-between" align="center">
                   <Heading size={1}>Channels</Heading>

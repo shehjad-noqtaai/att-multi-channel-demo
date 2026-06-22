@@ -1,7 +1,11 @@
 import {notFound} from 'next/navigation'
+import {Suspense} from 'react'
 import type {Metadata} from 'next'
-import {sanityClient} from '@/sanity/client'
-import {WEB_VARIATION_QUERY, OFFER_INDEX_QUERY} from '@/sanity/queries'
+import type {SanityClient} from 'next-sanity'
+import {sanityClient, getClient, previewEnabled, PUBLISHED_PERSPECTIVE} from '@/sanity/client'
+import {WEB_VARIATION_QUERY, OFFER_INDEX_QUERY, MERGE_FIELDS_QUERY} from '@/sanity/queries'
+import {listActiveReleases} from '@/sanity/releases'
+import {parseSimOverrides, type SimMergeField} from '@/lib/simulator'
 import {mergeText} from '@/sanity/tokens'
 import {mergeBlocks} from '@/lib/portableText'
 import {getPersona} from '@/lib/personas'
@@ -10,7 +14,9 @@ import {Hero} from '@/components/Hero'
 import {OfferBody} from '@/components/OfferBody'
 import {Cta} from '@/components/Cta'
 import {PersonaSwitcher} from '@/components/PersonaSwitcher'
+import {AudienceSimulator} from '@/components/home/AudienceSimulator'
 import {DisclaimerFooter} from '@/components/DisclaimerFooter'
+import {parseCampaignPreview} from '@/lib/campaignPreview'
 import type {OfferIndexEntry, PersonaKey, WebVariation} from '@/types'
 
 export const revalidate = 60
@@ -22,11 +28,20 @@ interface RouteParams {
 
 interface PageProps {
   params: Promise<RouteParams>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-async function loadVariation(brief: string, persona: string): Promise<WebVariation | null> {
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
+}
+
+async function loadVariation(
+  brief: string,
+  persona: string,
+  client: SanityClient = sanityClient,
+): Promise<WebVariation | null> {
   const preferredFlowStep = brief === 'att-fiber-order-recovery' ? 'reminder' : 'default'
-  return sanityClient.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
+  return client.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
     brief,
     persona,
     preferredFlowStep,
@@ -63,10 +78,18 @@ export async function generateStaticParams() {
   }
 }
 
-export default async function OfferPage({params}: PageProps) {
+export default async function OfferPage({params, searchParams}: PageProps) {
   const {brief, persona} = await params
+  const sp = await searchParams
+  const overrides = parseSimOverrides(sp)
 
-  const variation = await loadVariation(brief, persona)
+  // Preview perspective is gated on a configured read token.
+  const perspectiveParam = first(sp.perspective)
+  const perspective = previewEnabled && perspectiveParam ? perspectiveParam : PUBLISHED_PERSPECTIVE
+  const client = getClient(perspective)
+  const tokenOpts = {overrides, client}
+
+  const variation = await loadVariation(brief, persona, client)
   if (!variation || !variation.web) {
     notFound()
   }
@@ -77,15 +100,15 @@ export default async function OfferPage({params}: PageProps) {
   // Pre-resolve every {{token}} on the server before render. PT serializers
   // are sync, so blocks must be merged ahead of time.
   const [headline, subheadline, ctaLabel, mergedBlocks] = await Promise.all([
-    mergeText(web.headline, briefDoc, mergeFields),
-    mergeText(web.subheadline, briefDoc, mergeFields),
-    mergeText(web.ctaLabel, briefDoc, mergeFields),
-    mergeBlocks(web.body, briefDoc, mergeFields),
+    mergeText(web.headline, briefDoc, mergeFields, tokenOpts),
+    mergeText(web.subheadline, briefDoc, mergeFields, tokenOpts),
+    mergeText(web.ctaLabel, briefDoc, mergeFields, tokenOpts),
+    mergeBlocks(web.body, briefDoc, mergeFields, tokenOpts),
   ])
 
   // Also merge the CTA URL (it may legitimately be a token like
   // {{cart.recoveryUrl}} for the abandoned-cart brief).
-  const ctaUrl = web.ctaUrl ? await mergeText(web.ctaUrl, briefDoc, mergeFields) : undefined
+  const ctaUrl = web.ctaUrl ? await mergeText(web.ctaUrl, briefDoc, mergeFields, tokenOpts) : undefined
 
   // Build the persona switcher options from the offer index (so we only show
   // pills that actually resolve).
@@ -97,9 +120,28 @@ export default async function OfferPage({params}: PageProps) {
 
   const personaKey: PersonaKey = (getPersona(persona)?.key ?? 'new') as PersonaKey
 
+  // Data for the floating Audience Simulator (source switching + user details).
+  const [simMergeFields, releases] = await Promise.all([
+    client.fetch<SimMergeField[]>(MERGE_FIELDS_QUERY, {}),
+    listActiveReleases(),
+  ])
+
   return (
     <BrandShell brandColor={brandColor}>
       <div className="page">
+        <Suspense fallback={null}>
+          <AudienceSimulator
+            mode="offer"
+            briefSlug={brief}
+            activeCampaign={parseCampaignPreview(undefined)}
+            activePersona={personaKey}
+            activePerspective={perspective}
+            mergeFields={simMergeFields ?? []}
+            releases={releases}
+            previewEnabled={previewEnabled}
+          />
+        </Suspense>
+
         <PersonaSwitcher
           briefSlug={brief}
           activePersona={personaKey}

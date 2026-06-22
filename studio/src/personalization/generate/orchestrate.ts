@@ -35,11 +35,20 @@ import {
   pickAllowedMedia,
   type AllowedMediaItem,
 } from './allowedMedia'
-import {resolveBriefReleaseId, upsertVersion} from './releases'
+import {resolveBriefReleaseId, upsertVersion, upsertDraft} from './releases'
 
 export type {ChannelKey} from './agentGenerate'
 
 export type CellStatus = 'generating' | 'generated' | 'error'
+
+/**
+ * Where generated variations are written:
+ *   - 'release' (default): staged as version docs into the brief's content
+ *     release for review-then-publish-atomically.
+ *   - 'drafts': written straight to `drafts.<id>` for quick, informal
+ *     iteration — no release created.
+ */
+export type GenerationTarget = 'release' | 'drafts'
 
 export interface Cell {
   id: string
@@ -58,12 +67,22 @@ export interface ProgressEvent {
 
 export interface GenerateMatrixResult {
   cells: Cell[]
-  /** The content release the variations were written into (for review/promote). */
-  releaseId: string
+  /** Where the variations were written. */
+  target: GenerationTarget
+  /**
+   * The content release the variations were written into (for review/promote).
+   * Only set when `target === 'release'`.
+   */
+  releaseId?: string
 }
 
 export interface GenerateMatrixArgs {
   briefId: string
+  /**
+   * Where to write the generated variations. Defaults to 'release' (current
+   * behavior — stage into the brief's content release for review).
+   */
+  target?: GenerationTarget
   /** Filter the cell set to only these channel keys. Defaults to all targeted channels. */
   channels?: ChannelKey[]
   /** Filter the cell set to only these segment keys. Defaults to all targeted segments. */
@@ -220,14 +239,22 @@ export async function generateMatrix(
   // don't hold draft refs (which block delete + publish of the brief).
   const briefId = brief._id.startsWith('drafts.') ? brief._id.slice(7) : brief._id
 
+  const target: GenerationTarget = args.target ?? 'release'
+
   // Resolve (find-or-create) the brief's ongoing content release. Generated
   // variations are written as version documents into this release for review;
   // the published dataset is left untouched until the release is promoted.
-  const releaseId = await resolveBriefReleaseId(client, briefId, {
-    briefTitle: brief.title || briefId,
-    releaseTitle: brief.releaseTitle,
-    releaseType: brief.releaseType,
-  })
+  //
+  // In 'drafts' mode we skip the release entirely — variations go straight to
+  // `drafts.<id>` and `generationReleaseId` is left untouched.
+  const releaseId =
+    target === 'release'
+      ? await resolveBriefReleaseId(client, briefId, {
+          briefTitle: brief.title || briefId,
+          releaseTitle: brief.releaseTitle,
+          releaseType: brief.releaseType,
+        })
+      : undefined
 
   const plan = planCells(brief, args)
   const total = plan.length
@@ -340,8 +367,13 @@ export async function generateMatrix(
         }
       }
 
-      // 3. Write the variation as a version into the brief's release.
-      await upsertVersion(client, releaseId, id, versionDoc)
+      // 3. Write the variation — either as a version into the brief's release,
+      //    or straight to drafts for quick iteration.
+      if (target === 'release' && releaseId) {
+        await upsertVersion(client, releaseId, id, versionDoc)
+      } else {
+        await upsertDraft(client, id, versionDoc)
+      }
       status = 'generated'
     } catch (err) {
       // Error path — skip writing a version (the release only holds successful
@@ -366,5 +398,5 @@ export async function generateMatrix(
     })
   }
 
-  return {cells, releaseId}
+  return {cells, target, releaseId}
 }

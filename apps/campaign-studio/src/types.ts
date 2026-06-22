@@ -49,6 +49,8 @@ export interface CampaignBrief {
   featuredProduct?: {_ref: string}
   flowSteps?: FlowStep[]
   archived?: boolean
+  /** Default generation target for this brief ('release' | 'drafts'). */
+  defaultGenerationTarget?: 'release' | 'drafts'
   /** Ongoing content release that Generate writes variations into for review. */
   generationReleaseId?: string
   /** Optional name for that release (defaults to "<title> — generated variations"). */

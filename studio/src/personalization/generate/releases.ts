@@ -154,6 +154,23 @@ export async function upsertVersion(
   }
 }
 
+/**
+ * Upsert a variation straight to drafts — the "quick iteration" target that
+ * skips the content-release flow entirely. Writes `drafts.<publishedId>` with
+ * createOrReplace so re-generating the same cell overwrites cleanly. No release
+ * is created or touched.
+ */
+export async function upsertDraft(
+  client: SanityClient,
+  publishedId: string,
+  document: Record<string, unknown>,
+): Promise<void> {
+  const _id = `drafts.${publishedId}`
+  // The orchestrator always assembles a doc with `_type: 'contentVariation'`;
+  // createOrReplace's stub type wants `_id` + `_type` guaranteed.
+  await client.createOrReplace({...document, _id} as {_id: string; _type: string} & Record<string, unknown>)
+}
+
 async function waitForReleasePublished(c: SanityClient, releaseId: string): Promise<void> {
   const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {

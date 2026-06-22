@@ -40,6 +40,14 @@ export const WEB_VARIATION_QUERY = defineQuery(`*[_type == "contentVariation"
 }`)
 
 /**
+ * MERGE_FIELDS_QUERY — the full token registry, for the Audience Simulator's
+ * user-detail inputs. `sampleValue` seeds each input's default.
+ */
+export const MERGE_FIELDS_QUERY = defineQuery(`*[_type == "mergeField"] | order(key asc){
+  key, label, source, sampleValue, description
+}`)
+
+/**
  * OFFER_INDEX_QUERY — gallery: every brief that has at least one published
  * `web` contentVariation, with the set of personas that have one.
  */

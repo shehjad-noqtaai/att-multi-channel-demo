@@ -18,7 +18,7 @@ export const BRIEF_DETAIL_QUERY = defineQuery(`
     _id, _rev, _type, title, slug, multiStep, summary, goal, offer,
     keyMessages, mandatoryDisclaimers, targetChannels, targetSegments,
     allowedMedia, landingUrlBase, featuredProduct, flowSteps, archived,
-    generationReleaseId, releaseTitle, releaseType
+    defaultGenerationTarget, generationReleaseId, releaseTitle, releaseType
   }
 `)
 

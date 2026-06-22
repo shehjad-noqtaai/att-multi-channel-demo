@@ -81,8 +81,15 @@ import type {ChannelKey} from '../types'
 type ChannelData = Partial<WebContent & EmailContent & SmsContent>
 
 export interface VariationEditorProps {
-  /** Canonical document id (no `drafts.` prefix). */
+  /** Canonical document id (no `drafts.`/`versions.` prefix). */
   documentId: string
+  /**
+   * When set, the variation is staged in this content release and edits are
+   * written into the release's version document (not a standalone draft), so
+   * publishing the release includes them. When omitted, edits go to a draft and
+   * the "Approve & publish" flow promotes them to published.
+   */
+  releaseId?: string
   channelKey: ChannelKey
   channelLabel: string
   segmentTitle: string
@@ -131,6 +138,7 @@ export function VariationEditor(props: VariationEditorProps) {
 function EditorBody(props: VariationEditorProps) {
   const {
     documentId,
+    releaseId,
     channelKey,
     brand,
     brandColor,
@@ -147,9 +155,18 @@ function EditorBody(props: VariationEditorProps) {
   } = props
   const toast = useToast()
 
+  // In release mode the handle carries the release perspective, so every
+  // read/write targets the release's version document (versions.<release>.<id>)
+  // rather than a draft. Publishing the release then includes these edits.
+  const releaseMode = !!releaseId
   const handle = useMemo(
-    () => createDocumentHandle({documentId, documentType: 'contentVariation'}),
-    [documentId],
+    () =>
+      createDocumentHandle({
+        documentId,
+        documentType: 'contentVariation',
+        ...(releaseId ? {perspective: {releaseName: releaseId}} : {}),
+      }),
+    [documentId, releaseId],
   )
 
   // Live, optimistic value of the whole channel object — drives both the form
@@ -211,6 +228,11 @@ function EditorBody(props: VariationEditorProps) {
       {/* Status / lifecycle row */}
       <Flex align="center" justify="space-between" gap={3} wrap="wrap">
         <Inline space={2}>
+          {releaseMode ? (
+            <Badge tone="caution" mode="outline">
+              Editing release
+            </Badge>
+          ) : null}
           {status === 'generating' ? (
             <Badge tone="caution" mode="outline">
               Generating — locked
@@ -328,17 +350,24 @@ function EditorBody(props: VariationEditorProps) {
       </Grid>
 
       {/* ---- Actions ---- */}
-      <Flex justify="flex-end" gap={2} wrap="wrap" paddingTop={2}>
-        <Button text="Close" mode="ghost" onClick={onClose} />
-        <Button
-          text="Approve & publish"
-          icon={canApprove ? CheckmarkCircleIcon : WarningOutlineIcon}
-          tone="positive"
-          disabled={!canApprove}
-          onClick={approve}
-        />
+      <Flex justify="flex-end" gap={2} wrap="wrap" paddingTop={2} align="center">
+        {releaseMode ? (
+          <Text size={0} muted style={{marginRight: 'auto'}}>
+            Changes save into the content release. Publish the release from the matrix to go live.
+          </Text>
+        ) : null}
+        <Button text={releaseMode ? 'Done' : 'Close'} mode="ghost" onClick={onClose} />
+        {releaseMode ? null : (
+          <Button
+            text="Approve & publish"
+            icon={canApprove ? CheckmarkCircleIcon : WarningOutlineIcon}
+            tone="positive"
+            disabled={!canApprove}
+            onClick={approve}
+          />
+        )}
       </Flex>
-      {!canApprove && publishPerm.allowed && status !== 'generating' ? (
+      {!releaseMode && !canApprove && publishPerm.allowed && status !== 'generating' ? (
         <Text size={0} muted align="right">
           {smsOverLimit
             ? 'Trim the message to 160 characters to approve.'
@@ -347,7 +376,7 @@ function EditorBody(props: VariationEditorProps) {
               : ''}
         </Text>
       ) : null}
-      {!publishPerm.allowed ? (
+      {!releaseMode && !publishPerm.allowed ? (
         <Text size={0} muted align="right">
           You don’t have permission to publish this variation.
         </Text>

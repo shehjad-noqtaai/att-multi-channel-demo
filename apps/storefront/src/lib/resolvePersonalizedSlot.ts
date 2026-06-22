@@ -1,3 +1,4 @@
+import type {SanityClient} from 'next-sanity'
 import {sanityClient} from '@/sanity/client'
 import {WEB_VARIATION_QUERY} from '@/sanity/queries'
 import {mergeText} from '@/sanity/tokens'
@@ -49,15 +50,16 @@ async function fromVariation(
   slot: PersonalizedSlot,
   variation: WebVariation,
   persona: PersonaKey,
+  tokenOpts?: {overrides?: Record<string, string | undefined>; client?: SanityClient},
 ): Promise<ResolvedPersonalizedSlot | null> {
   const {web, brief, config, mergeFields} = variation
   if (!web?.headline) return null
 
   const [headline, subheadline, ctaLabel, ctaUrl] = await Promise.all([
-    mergeText(web.headline, brief, mergeFields),
-    mergeText(web.subheadline, brief, mergeFields),
-    mergeText(web.ctaLabel, brief, mergeFields),
-    web.ctaUrl ? mergeText(web.ctaUrl, brief, mergeFields) : Promise.resolve(undefined),
+    mergeText(web.headline, brief, mergeFields, tokenOpts),
+    mergeText(web.subheadline, brief, mergeFields, tokenOpts),
+    mergeText(web.ctaLabel, brief, mergeFields, tokenOpts),
+    web.ctaUrl ? mergeText(web.ctaUrl, brief, mergeFields, tokenOpts) : Promise.resolve(undefined),
   ])
 
   return {
@@ -79,26 +81,37 @@ async function fromVariation(
   }
 }
 
-/** Resolve a homepage slot: published web variation for (brief, persona) or CMS fallback. */
+/** Resolve a homepage slot: web variation for (brief, persona) or CMS fallback. */
 export async function resolvePersonalizedSlot(
   slot: PersonalizedSlot | undefined | null,
   persona: PersonaKey,
-  options?: {preferredFlowStep?: string},
+  options?: {
+    preferredFlowStep?: string
+    /** Simulator token overrides. */
+    overrides?: Record<string, string | undefined>
+    /** Perspective-specific client (preview). Defaults to the published client. */
+    client?: SanityClient
+  },
 ): Promise<ResolvedPersonalizedSlot | null> {
   if (!slot?.enabled) return null
+
+  const client = options?.client ?? sanityClient
 
   const briefSlug = slot.campaignBrief?.slug
   if (briefSlug) {
     const preferredFlowStep =
       options?.preferredFlowStep ?? (slot.campaignBrief?.multiStep ? 'reminder' : 'default')
 
-    const variation = await sanityClient.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
+    const variation = await client.fetch<WebVariation | null>(WEB_VARIATION_QUERY, {
       brief: briefSlug,
       persona,
       preferredFlowStep,
     })
     if (variation?.web) {
-      const resolved = await fromVariation(slot, variation, persona)
+      const resolved = await fromVariation(slot, variation, persona, {
+        overrides: options?.overrides,
+        client,
+      })
       if (resolved) return resolved
     }
   }

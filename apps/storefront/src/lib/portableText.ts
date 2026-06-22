@@ -4,7 +4,7 @@
 // <PortableText>.
 
 import type {MergeField, MinimalBrief} from '@studio/personalization/generate/tokens'
-import {mergeText} from '../sanity/tokens'
+import {mergeText, type MergeTextOptions} from '../sanity/tokens'
 import type {PortableTextBlock, PortableTextSpan} from '../types'
 
 /**
@@ -15,6 +15,7 @@ export async function mergeBlocks(
   blocks: PortableTextBlock[] | undefined,
   brief: MinimalBrief,
   mergeFields: MergeField[],
+  options?: MergeTextOptions,
 ): Promise<PortableTextBlock[]> {
   if (!blocks || blocks.length === 0) return []
   const out: PortableTextBlock[] = []
@@ -28,7 +29,7 @@ export async function mergeBlocks(
       if (span?._type === 'span' && typeof span.text === 'string') {
         mergedChildren.push({
           ...span,
-          text: await mergeText(span.text, brief, mergeFields),
+          text: await mergeText(span.text, brief, mergeFields, options),
         })
       } else {
         mergedChildren.push(span)

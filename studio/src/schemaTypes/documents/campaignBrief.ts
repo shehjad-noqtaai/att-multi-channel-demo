@@ -158,6 +158,22 @@ export const campaignBrief = defineType({
       group: 'brief',
     }),
     defineField({
+      name: 'defaultGenerationTarget',
+      title: 'Default generation target',
+      type: 'string',
+      description:
+        'Where “Generate variations” writes by default. "Release" stages into a content release for review-then-publish; "Drafts" writes straight to drafts for quick iteration. The choice in the Generate dialog always wins.',
+      options: {
+        list: [
+          {title: 'Release — review & publish together', value: 'release'},
+          {title: 'Drafts — quick iteration', value: 'drafts'},
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'release',
+      group: 'brief',
+    }),
+    defineField({
       name: 'releaseTitle',
       title: 'Release name',
       type: 'string',

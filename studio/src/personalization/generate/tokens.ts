@@ -33,6 +33,12 @@ export interface ResolveTokensOpts {
   mergeFields: MergeField[]
   client?: {fetch: (query: string, params?: Record<string, unknown>) => Promise<unknown>}
   sampleMode?: boolean
+  /**
+   * Per-token value overrides (e.g. from the storefront Audience Simulator).
+   * When a token key is present here, its value wins over the mergeField's
+   * sampleValue / sanityResolver. Empty strings are ignored (treated as "unset").
+   */
+  overrides?: Record<string, string | undefined>
 }
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
@@ -151,7 +157,7 @@ export async function resolveTokens(
   text: string,
   opts: ResolveTokensOpts,
 ): Promise<string> {
-  const {brief, mergeFields, client} = opts
+  const {brief, mergeFields, client, overrides} = opts
   const found = extractTokens(text)
   if (found.length === 0) return text
 
@@ -159,6 +165,12 @@ export async function resolveTokens(
   const cache = new Map<string, string | null>()
   for (const {key} of found) {
     if (cache.has(key)) continue
+    // Simulator/explicit overrides win over everything else.
+    const override = overrides?.[key]
+    if (override !== undefined && override !== '') {
+      cache.set(key, override)
+      continue
+    }
     const mf = mergeFields.find((m) => m.key === key)
     if (!mf) {
       cache.set(key, null)

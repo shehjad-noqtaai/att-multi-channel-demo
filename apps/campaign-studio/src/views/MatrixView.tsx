@@ -19,12 +19,23 @@ import {
   Grid,
   Heading,
   Inline,
+  Menu,
+  MenuButton,
+  MenuDivider,
+  MenuItem,
   Spinner,
   Stack,
   Text,
   useToast,
 } from '@sanity/ui'
-import {ArchiveIcon, EditIcon, EyeOpenIcon, RestoreIcon, TrashIcon} from '@sanity/icons'
+import {
+  ArchiveIcon,
+  EditIcon,
+  EllipsisVerticalIcon,
+  EyeOpenIcon,
+  RestoreIcon,
+  TrashIcon,
+} from '@sanity/icons'
 import {
   createDocumentHandle,
   publishDocument,
@@ -43,7 +54,7 @@ import {ATT_BLUE} from '../constants'
 import {WebHeroCard} from '@studio/ui/campaign/previews/WebHeroCard'
 import {EmailClientMock} from '@studio/ui/campaign/previews/EmailClientMock'
 import {PhoneSmsBubble} from '@studio/ui/campaign/previews/PhoneSmsBubble'
-import {TokenLegend, type TokenMode} from '@studio/ui/campaign/previews/TokenText'
+import type {TokenMode} from '@studio/ui/campaign/previews/TokenText'
 import {CellViewDialog} from '@studio/ui/campaign/CellViewDialog'
 import {webHeroForCell} from '@studio/ui/campaign/previews/previewCommon'
 import type {MergeField, MinimalBrief} from '@studio/personalization/generate/tokens'
@@ -135,6 +146,13 @@ export function MatrixView({
   const [deleting, setDeleting] = useState(false)
   // Pending content release (generated variations awaiting review/promote)
   const [releaseBusy, setReleaseBusy] = useState<null | 'publish' | 'discard'>(null)
+  // Pending drafts (variations generated/edited as drafts, awaiting publish)
+  const [draftBusy, setDraftBusy] = useState<null | 'publish' | 'discard'>(null)
+  // Which content the matrix is showing: the staged content release, or live
+  // published content. Defaults to the release while one is active.
+  const [matrixSource, setMatrixSource] = useState<'release' | 'published'>('release')
+  // Variation counts per source, for the source switcher pills.
+  const [counts, setCounts] = useState<{release: number; published: number}>({release: 0, published: 0})
   const [releaseMeta, setReleaseMeta] = useState<{name: string; title?: string; type?: string} | null>(null)
 
   // Load brief, then cells. When the brief has a pending generation release, the
@@ -144,34 +162,60 @@ export function MatrixView({
     let cancelled = false
     setError(null)
     setReleaseMeta(null)
+    const canonical = briefId.replace(/^drafts\./, '')
+    const COUNT_QUERY = `count(*[_type == "contentVariation" && brief._ref == $id && status == "generated"])`
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(client.fetch(BRIEF_DETAIL_QUERY, {id: briefId}) as Promise<any>)
       .then((b) => {
         if (cancelled) return null
         setBrief(b)
         const releaseId: string | undefined = b?.generationReleaseId
+
+        // Always know how many variations are live in published.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(client as any)
+          .withConfig({perspective: 'published'})
+          .fetch(COUNT_QUERY, {id: canonical})
+          .then((n: number) => !cancelled && setCounts((c) => ({...c, published: n || 0})))
+          .catch(() => {})
+
         if (releaseId) {
-          // Fetch the release metadata so the banner can name it.
+          // Release metadata (name/type) for the banner.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ;(client as any)
             .withConfig({apiVersion: RELEASES_API_VERSION, perspective: 'raw', useCdn: false})
-            .fetch(`releases::all()[name == $name][0]{name, "title": metadata.title, "type": metadata.releaseType}`, {
-              name: releaseId,
-            })
+            .fetch(
+              `*[_type == "system.release" && name == $name][0]{name, "title": metadata.title, "type": metadata.releaseType}`,
+              {name: releaseId},
+            )
             .then((m: {name: string; title?: string; type?: string} | null) => {
               if (!cancelled && m) setReleaseMeta(m)
             })
             .catch(() => {})
+
+          // Count of variations staged in the release.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(client as any)
+            .withConfig({apiVersion: RELEASES_API_VERSION, perspective: [releaseId], useCdn: false})
+            .fetch(COUNT_QUERY, {id: canonical})
+            .then((n: number) => !cancelled && setCounts((c) => ({...c, release: n || 0})))
+            .catch(() => {})
+        } else {
+          setCounts((c) => ({...c, release: 0}))
         }
-        const matrixClient = releaseId
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (client as any).withConfig({
-              apiVersion: RELEASES_API_VERSION,
-              perspective: [releaseId, 'drafts', 'published'],
-              useCdn: false,
-            })
-          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (client as any).withConfig({perspective: 'raw'})
+
+        // When no active release exists, force the published view.
+        const effectiveSource = releaseId ? matrixSource : 'published'
+        const matrixClient =
+          effectiveSource === 'release' && releaseId
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (client as any).withConfig({
+                apiVersion: RELEASES_API_VERSION,
+                perspective: [releaseId, 'drafts', 'published'],
+                useCdn: false,
+              })
+            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (client as any).withConfig({perspective: 'raw'})
         return matrixClient.fetch(MATRIX_QUERY, {briefId}) as Promise<VariationCell[]>
       })
       .then((c: VariationCell[] | null) => {
@@ -182,7 +226,7 @@ export function MatrixView({
     return () => {
       cancelled = true
     }
-  }, [client, briefId, refreshTick])
+  }, [client, briefId, refreshTick, matrixSource])
 
   const isMultiStep = !!brief?.multiStep
 
@@ -336,10 +380,73 @@ export function MatrixView({
   // Pending content release: variations generated into the release that have not
   // been promoted yet (their cell _id is a `versions.<release>.<id>`).
   const releaseId = brief?.generationReleaseId
+  // A release pointer is only kept while the release is active; it's cleared on
+  // publish/discard. So a present pointer == an active, unpublished release.
+  const hasActiveRelease = !!releaseId
+  const effectiveSource: 'release' | 'published' = hasActiveRelease ? matrixSource : 'published'
   const pendingReleaseCount = useMemo(
     () => (cells || []).filter((c) => c._id.startsWith('versions.')).length,
     [cells],
   )
+
+  // Pending drafts: variations that exist as `drafts.<id>` (generated straight
+  // to drafts, or edited but not yet published). Canonical ids, deduped.
+  const draftVariationIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (cells || [])
+            .filter((c) => c._id.startsWith('drafts.') && c.status === 'generated')
+            .map((c) => c._id.replace(/^drafts\./, '')),
+        ),
+      ),
+    [cells],
+  )
+  const pendingDraftCount = draftVariationIds.length
+
+  // Publish all pending draft variations in one batch (draft → published).
+  async function publishDrafts() {
+    if (!brief || draftVariationIds.length === 0) return
+    setDraftBusy('publish')
+    try {
+      await applyActions(
+        draftVariationIds.map((id) =>
+          publishDocument(createDocumentHandle({documentId: id, documentType: 'contentVariation'})),
+        ),
+      )
+      toast.push({
+        status: 'success',
+        title: 'Drafts published',
+        description: `${draftVariationIds.length} variation${draftVariationIds.length === 1 ? '' : 's'} promoted to live.`,
+      })
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.push({status: 'error', title: 'Publish failed', description: String(e)})
+    } finally {
+      setDraftBusy(null)
+    }
+  }
+
+  // Discard all pending draft variations (delete the draft editions only).
+  async function discardDrafts() {
+    if (!brief || draftVariationIds.length === 0) return
+    setDraftBusy('discard')
+    try {
+      const tx = writeClient.transaction()
+      for (const id of draftVariationIds) tx.delete(`drafts.${id}`)
+      await tx.commit({visibility: 'async'})
+      toast.push({
+        status: 'success',
+        title: 'Drafts discarded',
+        description: `${draftVariationIds.length} draft variation${draftVariationIds.length === 1 ? '' : 's'} removed.`,
+      })
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.push({status: 'error', title: 'Discard failed', description: String(e)})
+    } finally {
+      setDraftBusy(null)
+    }
+  }
 
   // Promote the release — publishes every staged variation atomically.
   async function publishRelease() {
@@ -354,6 +461,7 @@ export function MatrixView({
         description: `${pendingReleaseCount} variation${pendingReleaseCount === 1 ? '' : 's'} promoted to live.`,
       })
       setBrief({...brief, generationReleaseId: undefined})
+      setMatrixSource('published')
       setRefreshTick((t) => t + 1)
     } catch (e) {
       toast.push({status: 'error', title: 'Publish failed', description: String(e)})
@@ -371,6 +479,7 @@ export function MatrixView({
       await discardBriefRelease(writeClient, briefIdClean, releaseId)
       toast.push({status: 'success', title: 'Release discarded', description: 'Generated variations were not published.'})
       setBrief({...brief, generationReleaseId: undefined})
+      setMatrixSource('published')
       setRefreshTick((t) => t + 1)
     } catch (e) {
       toast.push({status: 'error', title: 'Discard failed', description: String(e)})
@@ -538,37 +647,42 @@ export function MatrixView({
             />
           </Inline>
           <Flex gap={2} align="center" justify="flex-end" wrap="wrap">
-            {tokenMode === 'raw' ? <TokenLegend /> : null}
-            <Button text="Edit brief" mode="ghost" onClick={() => onEdit(brief._id)} />
-            {brief.archived ? (
-              <Button
-                text="Unarchive"
-                icon={RestoreIcon}
-                mode="ghost"
-                tone="positive"
-                loading={archiving}
-                disabled={archiving}
-                onClick={() => setArchived(false)}
-              />
-            ) : (
-              <Button
-                text="Archive"
-                icon={ArchiveIcon}
-                mode="ghost"
-                tone="critical"
-                disabled={archiving || variationIds.length === 0}
-                onClick={() => setArchiveOpen(true)}
-              />
-            )}
-            <Button
-              text="Delete"
-              icon={TrashIcon}
-              mode="ghost"
-              tone="critical"
-              disabled={deleting}
-              onClick={() => setDeleteOpen(true)}
-            />
             <Button text="Generate" tone="primary" onClick={() => setGenerateOpen(true)} />
+            <MenuButton
+              id="brief-actions-menu"
+              button={<Button icon={EllipsisVerticalIcon} mode="ghost" aria-label="More actions" />}
+              popover={{portal: true, placement: 'bottom-end'}}
+              menu={
+                <Menu>
+                  <MenuItem text="Edit brief" icon={EditIcon} onClick={() => onEdit(brief._id)} />
+                  {brief.archived ? (
+                    <MenuItem
+                      text="Unarchive"
+                      icon={RestoreIcon}
+                      tone="positive"
+                      disabled={archiving}
+                      onClick={() => setArchived(false)}
+                    />
+                  ) : (
+                    <MenuItem
+                      text="Archive"
+                      icon={ArchiveIcon}
+                      tone="critical"
+                      disabled={archiving || variationIds.length === 0}
+                      onClick={() => setArchiveOpen(true)}
+                    />
+                  )}
+                  <MenuDivider />
+                  <MenuItem
+                    text="Delete"
+                    icon={TrashIcon}
+                    tone="critical"
+                    disabled={deleting}
+                    onClick={() => setDeleteOpen(true)}
+                  />
+                </Menu>
+              }
+            />
           </Flex>
         </Stack>
       </Flex>
@@ -594,27 +708,46 @@ export function MatrixView({
         </Card>
       ) : null}
 
-      {releaseId && pendingReleaseCount > 0 ? (
-        <Card padding={3} radius={2} tone="caution" border>
-          <Flex align="center" justify="space-between" gap={3} wrap="wrap">
-            <Stack space={2} flex={1} style={{minWidth: 0}}>
-              <Flex align="center" gap={2} wrap="wrap">
-                <Text size={1} weight="semibold">
-                  Pending release: {releaseMeta?.title || 'Generated variations'}
-                </Text>
-                <Badge tone="caution" mode="outline" fontSize={0}>
-                  {releaseMeta?.type || 'asap'}
-                </Badge>
-                <Text size={0} muted style={{fontFamily: 'monospace'}}>
-                  {releaseId}
-                </Text>
-              </Flex>
-              <Text size={1}>
-                {pendingReleaseCount} generated variation
-                {pendingReleaseCount === 1 ? '' : 's'} below are staged in this release. Review the
-                previews, then publish to promote them live, or discard to drop them.
+      <Card
+        padding={3}
+        radius={2}
+        border
+        tone={effectiveSource === 'release' ? 'caution' : 'transparent'}
+      >
+        <Flex align="center" justify="space-between" gap={3} wrap="wrap">
+          <Stack space={3} flex={1} style={{minWidth: 0}}>
+            <Flex align="center" gap={2} wrap="wrap">
+              <Text size={1} weight="semibold">
+                Viewing:
               </Text>
-            </Stack>
+              <Button
+                text={`Content release · ${counts.release}`}
+                mode={effectiveSource === 'release' ? 'default' : 'ghost'}
+                tone={effectiveSource === 'release' ? 'primary' : 'default'}
+                disabled={!hasActiveRelease}
+                onClick={() => setMatrixSource('release')}
+              />
+              <Button
+                text={`Published · ${counts.published}`}
+                mode={effectiveSource === 'published' ? 'default' : 'ghost'}
+                tone={effectiveSource === 'published' ? 'primary' : 'default'}
+                onClick={() => setMatrixSource('published')}
+              />
+              {hasActiveRelease && releaseMeta?.title ? (
+                <Badge tone="caution" mode="outline" fontSize={0}>
+                  {releaseMeta.title}
+                </Badge>
+              ) : null}
+            </Flex>
+            <Text size={1} muted>
+              {effectiveSource === 'release'
+                ? 'Showing staged content from the release — not yet live. Generating adds variations to this release.'
+                : hasActiveRelease
+                  ? 'Showing live published content. Switch to the content release to review staged variations.'
+                  : 'Showing live published content. Generate to stage a new content release for review.'}
+            </Text>
+          </Stack>
+          {hasActiveRelease && effectiveSource === 'release' ? (
             <Flex gap={2} align="center">
               <Button
                 text="Discard"
@@ -630,6 +763,45 @@ export function MatrixView({
                 loading={releaseBusy === 'publish'}
                 disabled={releaseBusy !== null}
                 onClick={publishRelease}
+              />
+            </Flex>
+          ) : null}
+        </Flex>
+      </Card>
+
+      {!releaseId && pendingDraftCount > 0 ? (
+        <Card padding={3} radius={2} tone="primary" border>
+          <Flex align="center" justify="space-between" gap={3} wrap="wrap">
+            <Stack space={2} flex={1} style={{minWidth: 0}}>
+              <Flex align="center" gap={2} wrap="wrap">
+                <Text size={1} weight="semibold">
+                  Draft variations
+                </Text>
+                <Badge tone="primary" mode="outline" fontSize={0}>
+                  drafts
+                </Badge>
+              </Flex>
+              <Text size={1}>
+                {pendingDraftCount} variation{pendingDraftCount === 1 ? '' : 's'} below
+                {pendingDraftCount === 1 ? ' is' : ' are'} drafts (generated or edited, not yet
+                live). Publish to promote them, or discard to drop the draft edits.
+              </Text>
+            </Stack>
+            <Flex gap={2} align="center">
+              <Button
+                text="Discard drafts"
+                mode="ghost"
+                tone="critical"
+                loading={draftBusy === 'discard'}
+                disabled={draftBusy !== null}
+                onClick={discardDrafts}
+              />
+              <Button
+                text="Publish drafts"
+                tone="positive"
+                loading={draftBusy === 'publish'}
+                disabled={draftBusy !== null}
+                onClick={publishDrafts}
               />
             </Flex>
           </Flex>
@@ -764,7 +936,10 @@ export function MatrixView({
 
       {editReq ? (
         <VariationEditor
-          documentId={editReq.cell._id.replace(/^drafts\./, '')}
+          documentId={editReq.cell._id
+            .replace(/^drafts\./, '')
+            .replace(/^versions\.[^.]+\./, '')}
+          releaseId={effectiveSource === 'release' && hasActiveRelease ? releaseId : undefined}
           channelKey={editReq.channel.key}
           channelLabel={editReq.channel.title}
           segmentTitle={editReq.segment.title}

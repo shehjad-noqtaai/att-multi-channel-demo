@@ -275,8 +275,31 @@ export function BriefEditor({briefId, config, onBack, onGenerated}: BriefEditorP
           <SectionHeading title="Content release" />
           <Text size={1} muted>
             Generate stages variations into a content release for review before they go live.
-            {brief.generationReleaseId ? ` Current release: ${brief.generationReleaseId}.` : ''}
           </Text>
+          {brief.generationReleaseId ? (
+            <Card padding={3} radius={2} tone="positive" border>
+              <Stack space={2}>
+                <Inline space={2}>
+                  <Badge tone="positive" mode="outline">
+                    Tied to release
+                  </Badge>
+                  <Text size={1} weight="medium" style={{fontFamily: 'ui-monospace, monospace'}}>
+                    {brief.generationReleaseId}
+                  </Text>
+                </Inline>
+                <Text size={0} muted>
+                  Created on the first Generate. New variations stage into this release until you
+                  publish or discard it from the Variations matrix.
+                </Text>
+              </Stack>
+            </Card>
+          ) : (
+            <Card padding={3} radius={2} tone="transparent" border>
+              <Text size={1} muted>
+                No release yet — one is created and tied here automatically on the first Generate.
+              </Text>
+            </Card>
+          )}
           <FieldRow label="Release name">
             <TextInput
               value={brief.releaseTitle || ''}

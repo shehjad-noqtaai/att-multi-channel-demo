@@ -39,18 +39,22 @@ export function AttHomeHero({slot}: AttHomeHeroProps) {
             {slot.eyebrow ? <p className="att-hero__eyebrow">{slot.eyebrow}</p> : null}
             <h1 className="att-hero__headline">{slot.headline}</h1>
             {slot.subheadline ? <p className="att-hero__subheadline">{slot.subheadline}</p> : null}
-            {slot.ctaLabel && ctaHref ? (
-              <a href={ctaHref} className="att-hero__cta">
-                {slot.ctaLabel}
-              </a>
-            ) : null}
-            {slot.briefSlug && slot.persona ? (
-              <Link
-                href={`/offer/${slot.briefSlug}/${slot.persona}`}
-                className="att-hero__details-link"
-              >
-                View full offer details
-              </Link>
+            {(slot.ctaLabel && ctaHref) || (slot.briefSlug && slot.persona) ? (
+              <div className="att-hero__actions">
+                {slot.ctaLabel && ctaHref ? (
+                  <a href={ctaHref} className="att-hero__cta">
+                    {slot.ctaLabel}
+                  </a>
+                ) : null}
+                {slot.briefSlug && slot.persona ? (
+                  <Link
+                    href={`/offer/${slot.briefSlug}/${slot.persona}`}
+                    className="att-hero__details-link"
+                  >
+                    View full offer details
+                  </Link>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>

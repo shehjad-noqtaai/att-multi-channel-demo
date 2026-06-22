@@ -4,6 +4,7 @@ import {AttFeatureSplit} from '@/components/home/AttFeatureSplit'
 import {AttResourceCards} from '@/components/home/AttResourceCards'
 import {AttFaqSection} from '@/components/home/AttFaqSection'
 import {AttPromoCardStatic, isFlexPromoCard} from '@/components/home/AttPromoCard'
+import type {SanityClient} from 'next-sanity'
 import {resolvePersonalizedSlot} from '@/lib/resolvePersonalizedSlot'
 import {sectionMatchesCampaign} from '@/lib/pageSections'
 import type {CampaignPreviewKey} from '@/lib/campaignPreview'
@@ -14,9 +15,14 @@ interface Props {
   sections: PageSection[]
   persona: PersonaKey
   campaign: CampaignPreviewKey
+  /** Simulator token overrides applied to personalized slots. */
+  overrides?: Record<string, string | undefined>
+  /** Perspective-specific client (preview). Defaults to the published client. */
+  client?: SanityClient
 }
 
-export async function PageSections({sections, persona, campaign}: Props) {
+export async function PageSections({sections, persona, campaign, overrides, client}: Props) {
+  const slotOpts = {overrides, client}
   const nodes = await Promise.all(
     sections.map(async (section, i) => {
       const key = section._key ?? `${section._type}-${i}`
@@ -24,13 +30,15 @@ export async function PageSections({sections, persona, campaign}: Props) {
       switch (section._type) {
         case 'pageSectionHero': {
           if (!sectionMatchesCampaign(section.campaignPreview, campaign)) return null
-          const slot = await resolvePersonalizedSlot(section.slot, persona)
+          const slot = await resolvePersonalizedSlot(section.slot, persona, slotOpts)
           return slot ? <AttHomeHero key={key} slot={slot} /> : null
         }
         case 'pageSectionBanner': {
           if (!sectionMatchesCampaign(section.campaignPreview, campaign)) return null
           const resolved = (
-            await Promise.all((section.slots ?? []).map((s) => resolvePersonalizedSlot(s, persona)))
+            await Promise.all(
+              (section.slots ?? []).map((s) => resolvePersonalizedSlot(s, persona, slotOpts)),
+            )
           ).filter(Boolean)
           return resolved.map((slot, j) =>
             slot ? <AttHomeBanner key={`${key}-${j}`} slot={slot} /> : null,
