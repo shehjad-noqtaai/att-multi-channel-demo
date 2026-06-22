@@ -33,6 +33,7 @@ import {TokenLegend, type TokenMode} from './previews/TokenText'
 import {CellViewDialog} from './CellViewDialog'
 import type {MergeField, MinimalBrief} from '../../personalization/generate/tokens'
 import {webHeroForCell} from './previews/previewCommon'
+import {briefContentSignature} from '../../personalization/generate/briefSignature'
 
 const API_VERSION = '2024-10-01'
 
@@ -79,7 +80,8 @@ interface FetchedVariation {
 }
 
 const BRIEF_QUERY = `*[_id == $id || _id == "drafts." + $id][0]{
-  _id, _rev, title, multiStep, offer, featuredProduct,
+  _id, _rev, title, multiStep, summary, offer, keyMessages, mandatoryDisclaimers,
+  featuredProduct, allowedMedia,
   "targetChannels": targetChannels[]->{_id, key, title},
   "targetSegments": targetSegments[]->{_id, key, title, brand, brandColor},
   "flowSteps": flowSteps[]{
@@ -456,6 +458,10 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
     [documentId],
   )
 
+  // Content signature drives the "Out of date" badge (stable against release
+  // bookkeeping that churns brief._rev).
+  const briefSignature = useMemo(() => briefContentSignature(brief), [brief])
+
   useEffect(() => {
     if (!baseId) return
     let cancelled = false
@@ -613,7 +619,7 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
         ) : (
           <MatrixGrid
             brief={briefForTokens}
-            briefRev={brief._rev}
+            briefRev={briefSignature}
             channels={brief.targetChannels ?? []}
             segments={segments}
             variations={variations}
@@ -647,7 +653,7 @@ export const VariationMatrixView: UserViewComponent = ({documentId}: {documentId
           email={dialogReq.variation.email as never}
           sms={dialogReq.variation.sms as never}
           brief={briefForTokens}
-          briefRev={brief._rev}
+          briefRev={briefSignature}
           mergeFields={mergeFields}
           tokenMode={dialogTokenMode}
           onTokenModeChange={setDialogTokenMode}
@@ -681,6 +687,7 @@ function AbandonedCartStacked({
   onView: (req: CellOpenRequest, returnEl: HTMLElement | null) => void
 }) {
   const steps = brief.flowSteps ?? []
+  const briefSignature = briefContentSignature(brief)
   if (steps.length === 0) {
     return (
       <Card padding={4} tone="caution" radius={2} shadow={1}>
@@ -719,7 +726,7 @@ function AbandonedCartStacked({
 
             <MatrixGrid
               brief={briefForTokens}
-              briefRev={brief._rev}
+              briefRev={briefSignature}
               channels={step.channels ?? []}
               segments={brief.targetSegments ?? []}
               variations={variations}

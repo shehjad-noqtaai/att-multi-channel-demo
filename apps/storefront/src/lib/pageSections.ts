@@ -123,7 +123,7 @@ export function buildDefaultPageSections(
           {
             _type: 'pageSectionBanner' as const,
             _key: 'banner-fiber',
-            campaignPreview: 'trade-in' as const,
+            campaignPreview: 'abandoned-cart' as const,
             slots: cms.personalizedBanners,
           },
         ]

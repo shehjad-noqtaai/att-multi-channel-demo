@@ -35,6 +35,8 @@ export interface CellViewDialogProps {
   web?: WebContent
   email?: EmailContent
   sms?: SmsContent
+  /** SMS character cap (channel.maxLength) for the SMS counter/validation. */
+  smsMaxLength?: number
   brief: MinimalBrief
   briefRev?: string
   mergeFields: MergeField[]
@@ -67,6 +69,7 @@ export function CellViewDialog(props: CellViewDialogProps) {
     web,
     email,
     sms,
+    smsMaxLength,
     brief,
     briefRev: _briefRev,
     mergeFields,
@@ -181,6 +184,7 @@ export function CellViewDialog(props: CellViewDialogProps) {
                 brief={brief}
                 mergeFields={mergeFields}
                 tokenMode={tokenMode}
+                maxLength={smsMaxLength}
               />
             )}
           </Box>

@@ -223,7 +223,7 @@ async function main() {
       {
         _key: 'banner-fiber',
         _type: 'pageSectionBanner',
-        campaignPreview: 'trade-in',
+        campaignPreview: 'abandoned-cart',
         slots: [
           {
             _key: 'banner-fiber-slot',

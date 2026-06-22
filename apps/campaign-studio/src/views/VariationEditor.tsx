@@ -65,7 +65,7 @@ import {
   useEditDocument,
   type DocumentHandle,
 } from '@sanity/sdk-react'
-import {Suspense, useMemo, useRef, type ComponentProps} from 'react'
+import {Suspense, useEffect, useMemo, useRef, type ComponentProps} from 'react'
 import type {SanityClient} from '@sanity/client'
 
 import {WebHeroCard, type WebContent} from '@studio/ui/campaign/previews/WebHeroCard'
@@ -97,6 +97,8 @@ export interface VariationEditorProps {
   brandColor?: string
   stepKey?: string
   stepIntent?: string
+  /** Channel character cap (channel.maxLength) — used for SMS validation. */
+  maxLength?: number
   /** Variation status — locks the editor while `generating`. */
   status?: string
   client: SanityClient
@@ -143,6 +145,7 @@ function EditorBody(props: VariationEditorProps) {
     brand,
     brandColor,
     stepIntent,
+    maxLength,
     status,
     client,
     brief,
@@ -174,12 +177,39 @@ function EditorBody(props: VariationEditorProps) {
   const {data} = useDocument<ChannelData>({...handle, path: channelKey})
   const channel = data ?? {}
 
-  const updatePerm = useDocumentPermissions(editDocument(handle))
-  const publishPerm = useDocumentPermissions(publishDocument(handle))
+  // Permission gate is resolved against the canonical document (no release
+  // perspective). The release-version permission resolver is conservative about
+  // releases created outside the App SDK and wrongly reports read-only, even
+  // though the same user can edit the variation. Reads/writes still target the
+  // release version via `handle`.
+  const permHandle = useMemo(
+    () => createDocumentHandle({documentId, documentType: 'contentVariation'}),
+    [documentId],
+  )
+  const updatePerm = useDocumentPermissions(editDocument(permHandle))
+  const publishPerm = useDocumentPermissions(publishDocument(permHandle))
   const synced = useDocumentSyncStatus(handle)
   const apply = useApplyDocumentActions()
 
   const locked = status === 'generating' || !updatePerm.allowed
+
+  // Flag the variation as manually edited the first time its content diverges
+  // from the value loaded on open. Cleared automatically on (re)generation,
+  // which replaces the whole document. Drives the "Manually updated" badge.
+  const setManuallyEdited = useEditDocument<boolean>({...handle, path: 'manuallyEdited'})
+  const initialContentRef = useRef<string | null>(null)
+  const flaggedRef = useRef(false)
+  useEffect(() => {
+    const json = JSON.stringify(channel)
+    if (initialContentRef.current === null) {
+      initialContentRef.current = json
+      return
+    }
+    if (!flaggedRef.current && json !== initialContentRef.current) {
+      flaggedRef.current = true
+      setManuallyEdited(true)
+    }
+  }, [channel, setManuallyEdited])
 
   // ---- Validation: SMS length + unresolved merge tokens (brief §06/§07) ----
   const editableText = [
@@ -206,8 +236,11 @@ function EditorBody(props: VariationEditorProps) {
     return out
   }, [editableText, mergeFields, brief])
 
+  // SMS character cap comes from the channel (channel.maxLength); fall back to
+  // the schema's 600 only if the channel didn't provide one.
+  const smsMax = maxLength ?? 600
   const smsLength = (channel.message ?? '').length
-  const smsOverLimit = channelKey === 'sms' && smsLength > 160
+  const smsOverLimit = channelKey === 'sms' && smsLength > smsMax
 
   const canApprove =
     publishPerm.allowed && status !== 'generating' && !smsOverLimit && unresolvedTokens.length === 0
@@ -246,7 +279,7 @@ function EditorBody(props: VariationEditorProps) {
               Saving…
             </Badge>
           )}
-          {smsOverLimit ? <Badge tone="critical">Over limit · {smsLength}/160</Badge> : null}
+          {smsOverLimit ? <Badge tone="critical">Over limit · {smsLength}/{smsMax}</Badge> : null}
           {unresolvedTokens.length > 0 ? (
             <Badge tone="critical">
               {unresolvedTokens.length} unresolved token{unresolvedTokens.length > 1 ? 's' : ''}
@@ -277,7 +310,7 @@ function EditorBody(props: VariationEditorProps) {
           ) : channelKey === 'email' ? (
             <EmailFields handle={handle} channel={channel} locked={locked} />
           ) : (
-            <SmsFields handle={handle} channel={channel} locked={locked} smsLength={smsLength} />
+            <SmsFields handle={handle} channel={channel} locked={locked} smsLength={smsLength} max={smsMax} />
           )}
 
           {channelKey === 'web' ? (
@@ -343,6 +376,7 @@ function EditorBody(props: VariationEditorProps) {
                 brief={brief}
                 mergeFields={mergeFields}
                 tokenMode={initialTokenMode}
+                maxLength={smsMax}
               />
             )}
           </Box>
@@ -370,7 +404,7 @@ function EditorBody(props: VariationEditorProps) {
       {!releaseMode && !canApprove && publishPerm.allowed && status !== 'generating' ? (
         <Text size={0} muted align="right">
           {smsOverLimit
-            ? 'Trim the message to 160 characters to approve.'
+            ? `Trim the message to ${smsMax} characters to approve.`
             : unresolvedTokens.length > 0
               ? `Resolve ${unresolvedTokens.join(', ')} to approve.`
               : ''}
@@ -519,7 +553,7 @@ function EmailFields({
             value={channel.subjectLine}
             disabled={locked}
           />
-          <CharCount length={(channel.subjectLine ?? '').length} max={60} />
+          <CharCount length={(channel.subjectLine ?? '').length} max={100} />
         </Stack>
       </FieldRow>
       <FieldRow label="Preheader">
@@ -554,11 +588,13 @@ function SmsFields({
   channel,
   locked,
   smsLength,
+  max,
 }: {
   handle: DocumentHandle
   channel: ChannelData
   locked: boolean
   smsLength: number
+  max: number
 }) {
   return (
     <Stack space={4}>
@@ -571,7 +607,7 @@ function SmsFields({
             disabled={locked}
             rows={4}
           />
-          <CharCount length={smsLength} max={160} />
+          <CharCount length={smsLength} max={max} />
         </Stack>
       </FieldRow>
       <FieldRow label="Link">

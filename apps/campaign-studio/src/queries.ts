@@ -26,7 +26,7 @@ export const BRIEF_DETAIL_QUERY = defineQuery(`
 export const MATRIX_QUERY = defineQuery(`
   *[_type == "contentVariation" && brief._ref == $briefId] {
     _id, _rev, flowStep, channel, segment, status, generatedAt,
-    generatedFromBriefRev, brief,
+    generatedFromBriefRev, manuallyEdited, brief,
     web, email, sms
   }
 `)

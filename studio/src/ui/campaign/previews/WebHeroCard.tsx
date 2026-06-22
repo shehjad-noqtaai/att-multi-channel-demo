@@ -45,6 +45,7 @@ export function WebHeroCard({
       subheadline={web?.subheadline}
       body={web?.body}
       ctaLabel={web?.ctaLabel}
+      ctaUrl={web?.ctaUrl}
       placeholderLabel="Hero image"
     />
   )

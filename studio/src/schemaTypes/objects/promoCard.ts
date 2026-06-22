@@ -9,7 +9,13 @@ export const promoCard = defineType({
     defineField({name: 'title', type: 'string', validation: (r) => r.required()}),
     defineField({name: 'description', type: 'text', rows: 3}),
     defineField({name: 'ctaLabel', title: 'CTA label', type: 'string'}),
-    defineField({name: 'ctaUrl', title: 'CTA URL', type: 'url'}),
+    defineField({
+      name: 'ctaUrl',
+      title: 'CTA URL',
+      type: 'url',
+      description: 'Supports https://, tel: and mailto: links.',
+      validation: (rule) => rule.uri({scheme: ['http', 'https', 'tel', 'mailto']}),
+    }),
     defineField({
       name: 'theme',
       type: 'string',
@@ -41,9 +47,20 @@ export const promoCard = defineType({
       rows: 2,
     }),
     defineField({name: 'legalLinkLabel', title: 'Legal link label', type: 'string'}),
-    defineField({name: 'legalLinkUrl', title: 'Legal link URL', type: 'url'}),
+    defineField({
+      name: 'legalLinkUrl',
+      title: 'Legal link URL',
+      type: 'url',
+      validation: (rule) => rule.uri({scheme: ['http', 'https', 'tel', 'mailto']}),
+    }),
     defineField({name: 'secondaryCtaLabel', title: 'Secondary CTA label', type: 'string'}),
-    defineField({name: 'secondaryCtaUrl', title: 'Secondary CTA URL', type: 'url'}),
+    defineField({
+      name: 'secondaryCtaUrl',
+      title: 'Secondary CTA URL',
+      type: 'url',
+      description: 'Supports https://, tel: and mailto: links.',
+      validation: (rule) => rule.uri({scheme: ['http', 'https', 'tel', 'mailto']}),
+    }),
     defineField({
       name: 'image',
       type: 'image',

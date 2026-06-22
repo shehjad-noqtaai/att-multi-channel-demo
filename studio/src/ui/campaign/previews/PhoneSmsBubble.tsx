@@ -21,6 +21,8 @@ export interface PhoneSmsBubbleProps {
   brief: MinimalBrief
   mergeFields: MergeField[]
   tokenMode: TokenMode
+  /** Channel character cap. When omitted, no limit is enforced/shown. */
+  maxLength?: number
 }
 
 export function PhoneSmsBubble({
@@ -31,11 +33,12 @@ export function PhoneSmsBubble({
   brief,
   mergeFields,
   tokenMode,
+  maxLength,
 }: PhoneSmsBubbleProps) {
   const accent = brandColor ?? '#00A8E0'
   const message = sms?.message ?? ''
   const length = message.length
-  const tooLong = length > 160
+  const tooLong = maxLength != null && length > maxLength
 
   return (
     <Card radius={2} border overflow="hidden" tone="default" style={{...previewCardStyle, minHeight: 220}}>
@@ -102,7 +105,8 @@ export function PhoneSmsBubble({
             SMS
           </Text>
           <Text size={0} style={tooLong ? {color: '#dc2626'} : undefined} muted={!tooLong}>
-            {length}/160 {tooLong ? '· over limit' : ''}
+            {maxLength != null ? `${length}/${maxLength}` : `${length}`}
+            {tooLong ? ' · over limit' : ''}
           </Text>
         </Flex>
       </Stack>

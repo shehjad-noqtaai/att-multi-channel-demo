@@ -99,6 +99,14 @@ export const contentVariation = defineType({
       readOnly: true,
       description: 'Drives the "out of date" badge when this !== brief._rev.',
     }),
+    defineField({
+      name: 'manuallyEdited',
+      title: 'Manually edited',
+      type: 'boolean',
+      readOnly: true,
+      description:
+        'Set true when a marketer edits this variation in the app. Cleared on (re)generation. Drives the "Manually updated" badge.',
+    }),
 
     // ---- Discriminated channel content. Only the matching one is populated ----
     //

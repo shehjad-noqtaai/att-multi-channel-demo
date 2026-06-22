@@ -10,7 +10,7 @@ export const emailContent = defineType({
       title: 'Subject line',
       type: 'string',
       validation: (rule) =>
-        rule.required().max(60).warning('Email subject lines work best at 60 characters or less.'),
+        rule.required().max(100).warning('Email subject lines work best at 100 characters or less.'),
     }),
     defineField({
       name: 'preheader',

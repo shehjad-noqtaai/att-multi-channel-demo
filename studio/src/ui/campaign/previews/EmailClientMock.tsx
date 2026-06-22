@@ -63,6 +63,7 @@ export function EmailClientMock({
       subheadline={email?.preheader}
       body={email?.body}
       ctaLabel={email?.ctaLabel}
+      ctaUrl={email?.ctaUrl}
       placeholderLabel="Email hero"
       topChrome={
         <Flex align="center" gap={2}>

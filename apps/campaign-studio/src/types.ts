@@ -76,6 +76,8 @@ export interface VariationCell {
   status?: CellStatus
   generatedAt?: string
   generatedFromBriefRev?: string
+  /** True when a marketer hand-edited this variation; drives the "Manually updated" badge. */
+  manuallyEdited?: boolean
   briefRef?: {_ref: string}
   web?: {
     headline?: string

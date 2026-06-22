@@ -30,12 +30,16 @@ import {
 } from '@sanity/ui'
 import {
   ArchiveIcon,
+  DesktopIcon,
   EditIcon,
   EllipsisVerticalIcon,
+  EnvelopeIcon,
   EyeOpenIcon,
+  MobileDeviceIcon,
   RestoreIcon,
   TrashIcon,
 } from '@sanity/icons'
+import type {ComponentType} from 'react'
 import {
   createDocumentHandle,
   publishDocument,
@@ -62,7 +66,10 @@ import {
   RELEASES_API_VERSION,
   publishBriefRelease,
   discardBriefRelease,
+  resolveBriefReleaseId,
+  upsertVersion,
 } from '@studio/personalization/generate/releases'
+import {briefContentSignature} from '@studio/personalization/generate/briefSignature'
 
 import {generateMatrix, type ChannelKey as CK} from '@studio/personalization/generate/orchestrate'
 import {GenerateDialog} from './GenerateDialog'
@@ -76,6 +83,13 @@ import type {MediaAssetOption} from '../components/AllowedMediaPicker'
  * twice — once as `drafts.<id>`, once as the published `<id>`. Collapse to one
  * per canonical id, preferring the draft so in-flight edits show immediately.
  */
+/** Per-channel icon for the matrix column headers. */
+const CHANNEL_ICON: Record<string, ComponentType> = {
+  web: DesktopIcon,
+  email: EnvelopeIcon,
+  sms: MobileDeviceIcon,
+}
+
 function dedupeCells(cells: VariationCell[]): VariationCell[] {
   const byId = new Map<string, VariationCell>()
   for (const cell of cells) {
@@ -138,6 +152,8 @@ export function MatrixView({
   const dialogFocusReturnRef = useRef<HTMLElement | null>(null)
   // Per-cell edit dialog
   const [editReq, setEditReq] = useState<CellOpenRequest | null>(null)
+  // Set while we stage a release before opening the editor (published edits).
+  const [editPreparing, setEditPreparing] = useState<string | null>(null)
   // Archive (unpublish-all) confirmation
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [archiving, setArchiving] = useState(false)
@@ -229,6 +245,10 @@ export function MatrixView({
   }, [client, briefId, refreshTick, matrixSource])
 
   const isMultiStep = !!brief?.multiStep
+
+  // Content signature for the "Out of date" check (stable against release
+  // bookkeeping that churns brief._rev).
+  const briefSignature = useMemo(() => briefContentSignature(brief), [brief])
 
   // Resolve channel and segment refs to full docs ahead of render — the
   // shared previews want richer metadata than the channel/segment key.
@@ -339,11 +359,11 @@ export function MatrixView({
       )
       if (!cell) return true
       if (cell.status !== 'generated') return true
-      if (brief?._rev && cell.generatedFromBriefRev && cell.generatedFromBriefRev !== brief._rev)
+      if (cell.generatedFromBriefRev && cell.generatedFromBriefRev !== briefSignature)
         return true
       return false
     },
-    [findCell, brief?._rev],
+    [findCell, briefSignature],
   )
 
   async function regenerateCell(
@@ -566,6 +586,71 @@ export function MatrixView({
     }
   }
 
+  // Open the editor. Edits always flow through a content release:
+  //   - If a release is already active, edit its version directly.
+  //   - If not (e.g. after publishing), stage a fresh release seeded from the
+  //     current published/draft content, fold any loose draft into it, then edit
+  //     the release version. No more confusing standalone drafts.
+  async function startEdit(req: CellOpenRequest) {
+    if (!brief) return
+    if (hasActiveRelease) {
+      setEditReq(req)
+      return
+    }
+    const canonical = req.cell._id
+      .replace(/^drafts\./, '')
+      .replace(/^versions\.[^.]+\./, '')
+    setEditPreparing(canonical)
+    try {
+      const briefIdClean = brief._id.replace(/^drafts\./, '')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = (writeClient as any).withConfig({perspective: 'raw'})
+      const [draftDoc, pubDoc] = await Promise.all([
+        raw.getDocument(`drafts.${canonical}`).catch(() => undefined),
+        raw.getDocument(canonical).catch(() => undefined),
+      ])
+      const src = draftDoc ?? pubDoc
+      const newReleaseId = await resolveBriefReleaseId(writeClient, briefIdClean, {
+        briefTitle: brief.title || briefIdClean,
+        releaseTitle: brief.releaseTitle,
+        releaseType: brief.releaseType,
+      })
+      if (src) {
+        // Strip system fields; seed the release version from current content.
+        const {
+          _id: _i,
+          _rev: _r,
+          _createdAt: _c,
+          _updatedAt: _u,
+          _system: _s,
+          ...content
+        } = src as Record<string, unknown>
+        void _i
+        void _r
+        void _c
+        void _u
+        void _s
+        await upsertVersion(writeClient, newReleaseId, canonical, content)
+      }
+      // Drop the loose draft now that its content lives in the release.
+      if (draftDoc) {
+        try {
+          await writeClient.delete(`drafts.${canonical}`)
+        } catch {
+          /* ignore */
+        }
+      }
+      setBrief({...brief, generationReleaseId: newReleaseId})
+      setMatrixSource('release')
+      setEditReq(req)
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.push({status: 'error', title: 'Could not start edit', description: String(e)})
+    } finally {
+      setEditPreparing(null)
+    }
+  }
+
   const handleOpenView = (req: CellOpenRequest, returnEl: HTMLElement | null) => {
     dialogFocusReturnRef.current = returnEl
     setDialogTokenMode(tokenMode)
@@ -769,6 +854,15 @@ export function MatrixView({
         </Flex>
       </Card>
 
+      {editPreparing ? (
+        <Card padding={3} radius={2} tone="primary" border>
+          <Flex align="center" gap={2}>
+            <Spinner muted />
+            <Text size={1}>Staging a content release for your edit…</Text>
+          </Flex>
+        </Card>
+      ) : null}
+
       {!releaseId && pendingDraftCount > 0 ? (
         <Card padding={3} radius={2} tone="primary" border>
           <Flex align="center" justify="space-between" gap={3} wrap="wrap">
@@ -840,7 +934,7 @@ export function MatrixView({
 
                   <MatrixGrid
                     brief={briefForTokens}
-                    briefRev={brief._rev}
+                    briefRev={briefSignature}
                     channels={stepChannels}
                     segments={segments}
                     cells={cells}
@@ -851,7 +945,7 @@ export function MatrixView({
                     regenerating={regenerating}
                     onRegenerate={regenerateCell}
                     onView={handleOpenView}
-                    onEdit={setEditReq}
+                    onEdit={startEdit}
                   />
                 </Stack>
               </Card>
@@ -861,7 +955,7 @@ export function MatrixView({
       ) : (
         <MatrixGrid
           brief={briefForTokens}
-          briefRev={brief._rev}
+          briefRev={briefSignature}
           channels={channelsForStep(null)}
           segments={segments}
           cells={cells}
@@ -871,7 +965,7 @@ export function MatrixView({
           regenerating={regenerating}
           onRegenerate={regenerateCell}
           onView={handleOpenView}
-          onEdit={setEditReq}
+          onEdit={startEdit}
         />
       )}
 
@@ -912,8 +1006,9 @@ export function MatrixView({
           }
           email={dialogReq.cell.email as never}
           sms={dialogReq.cell.sms as never}
+          smsMaxLength={dialogReq.channel.maxLength}
           brief={briefForTokens}
-          briefRev={brief._rev}
+          briefRev={briefSignature}
           mergeFields={mergeFields}
           tokenMode={dialogTokenMode}
           onTokenModeChange={setDialogTokenMode}
@@ -941,6 +1036,7 @@ export function MatrixView({
             .replace(/^versions\.[^.]+\./, '')}
           releaseId={effectiveSource === 'release' && hasActiveRelease ? releaseId : undefined}
           channelKey={editReq.channel.key}
+          maxLength={editReq.channel.maxLength}
           channelLabel={editReq.channel.title}
           segmentTitle={editReq.segment.title}
           brand={editReq.segment.brand?.toUpperCase()}
@@ -950,7 +1046,7 @@ export function MatrixView({
           status={editReq.cell.status}
           client={client}
           brief={briefForTokens}
-          briefRev={brief._rev}
+          briefRev={briefSignature}
           mergeFields={mergeFields}
           allowedMedia={allowedMediaOptions}
           initialTokenMode={tokenMode}
@@ -1089,21 +1185,30 @@ function MatrixGrid({
       {/* Channel header row */}
       <Grid columns={cols + 1} gap={4} style={gridStyle}>
         <Box />
-        {channels.map((ch) => (
-          <Box key={ch._id} paddingX={2} paddingY={2}>
-            <Flex align="center" gap={2}>
-              <Box style={{width: 8, height: 8, borderRadius: 4, background: ATT_BLUE}} />
-              <Text size={1} weight="semibold" style={{color: ATT_BLUE}}>
-                {ch.title.toUpperCase()}
-              </Text>
-              {ch.maxLength ? (
-                <Badge tone="default" mode="outline">
-                  ≤{ch.maxLength}
-                </Badge>
-              ) : null}
-            </Flex>
-          </Box>
-        ))}
+        {channels.map((ch) => {
+          const Icon = CHANNEL_ICON[ch.key]
+          return (
+            <Box key={ch._id} paddingX={2} paddingY={2}>
+              <Flex align="center" gap={2}>
+                {Icon ? (
+                  <Text size={2} style={{color: ATT_BLUE, lineHeight: 0}}>
+                    <Icon />
+                  </Text>
+                ) : (
+                  <Box style={{width: 8, height: 8, borderRadius: 4, background: ATT_BLUE}} />
+                )}
+                <Text size={1} weight="semibold" style={{color: ATT_BLUE}}>
+                  {ch.title.toUpperCase()}
+                </Text>
+                {ch.maxLength ? (
+                  <Badge tone="default" mode="outline">
+                    ≤{ch.maxLength}
+                  </Badge>
+                ) : null}
+              </Flex>
+            </Box>
+          )
+        })}
       </Grid>
 
       {segments.map((seg) => (
@@ -1215,8 +1320,10 @@ function MatrixCell({
     briefRev &&
     cell.generatedFromBriefRev !== briefRev
   )
-  // An un-approved edit lives as a draft (matrix fetches the `raw` perspective
-  // and dedupeCells prefers it). Surfaces the §06 "Edited · draft" chip.
+  // Hand-edited variations carry a stored flag (set by the editor); surfaces
+  // the "Manually updated" chip independent of whether the doc is a draft.
+  const manuallyEdited = !!cell?.manuallyEdited
+  // A pending draft edition (draft-mode generation, or an unpublished draft).
   const isDraft = !!cell && cell._id.startsWith('drafts.')
 
   // Skeleton — reserves the cell aspect ratio so the grid doesn't reflow when
@@ -1308,6 +1415,7 @@ function MatrixCell({
         brief={brief}
         mergeFields={mergeFields}
         tokenMode={tokenMode}
+        maxLength={channel.maxLength}
       />
     )
   }
@@ -1320,7 +1428,16 @@ function MatrixCell({
         <Flex align="center" justify="space-between" gap={2} wrap="wrap">
           <Inline space={2}>
             <StatusPill status={status} />
-            {isDraft ? <Badge tone="caution">Edited · draft</Badge> : null}
+            {manuallyEdited ? (
+              <Badge tone="primary" mode="outline">
+                Manually updated
+              </Badge>
+            ) : null}
+            {isDraft ? (
+              <Badge tone="caution" mode="outline">
+                Draft
+              </Badge>
+            ) : null}
             {outOfDate ? <Badge tone="caution">Out of date</Badge> : null}
           </Inline>
           {canView && cell ? (

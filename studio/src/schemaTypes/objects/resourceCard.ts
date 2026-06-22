@@ -20,7 +20,13 @@ export const resourceCard = defineType({
       description: 'Optional list of links instead of description + CTA (e.g. “Helpful resources”).',
     }),
     defineField({name: 'ctaLabel', title: 'CTA label', type: 'string'}),
-    defineField({name: 'ctaUrl', title: 'CTA URL', type: 'url'}),
+    defineField({
+      name: 'ctaUrl',
+      title: 'CTA URL',
+      type: 'url',
+      description: 'Supports https://, tel: and mailto: links.',
+      validation: (rule) => rule.uri({scheme: ['http', 'https', 'tel', 'mailto']}),
+    }),
     defineField({
       name: 'image',
       type: 'image',

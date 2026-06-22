@@ -36,6 +36,8 @@ export interface HeroChannelPreviewProps {
   subheadline?: string
   body?: PortableTextBlock[] | unknown[]
   ctaLabel?: string
+  /** Offer/landing URL — used by the "Read more" link when body is truncated. */
+  ctaUrl?: string
   /** Slim bar above the hero (e.g. email from line). */
   topChrome?: ReactNode
   placeholderLabel?: string
@@ -62,6 +64,7 @@ export function HeroChannelPreview({
   subheadline,
   body,
   ctaLabel,
+  ctaUrl,
   topChrome,
   placeholderLabel = 'Hero image',
 }: HeroChannelPreviewProps) {
@@ -197,19 +200,22 @@ export function HeroChannelPreview({
 
         {blocks.length > 4 ? (
           <Box>
-            <Box
-              style={{
-                display: 'inline-block',
-                padding: '2px 10px',
-                borderRadius: 999,
-                background: '#f1f5f9',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <Text size={0} muted weight="medium">
-                +{blocks.length - 4} more
+            {ctaUrl ? (
+              <Text size={1} weight="medium">
+                <a
+                  href={ctaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{color: accent, textDecoration: 'none'}}
+                >
+                  Read more →
+                </a>
               </Text>
-            </Box>
+            ) : (
+              <Text size={1} weight="medium" style={{color: accent}}>
+                Read more →
+              </Text>
+            )}
           </Box>
         ) : null}
 

@@ -36,6 +36,7 @@ import {
   type AllowedMediaItem,
 } from './allowedMedia'
 import {resolveBriefReleaseId, upsertVersion, upsertDraft} from './releases'
+import {briefContentSignature} from './briefSignature'
 
 export type {ChannelKey} from './agentGenerate'
 
@@ -239,6 +240,10 @@ export async function generateMatrix(
   // don't hold draft refs (which block delete + publish of the brief).
   const briefId = brief._id.startsWith('drafts.') ? brief._id.slice(7) : brief._id
 
+  // Content signature drives the "Out of date" badge — stable against release
+  // bookkeeping that churns brief._rev. Stored on each variation below.
+  const briefSignature = briefContentSignature(brief)
+
   const target: GenerationTarget = args.target ?? 'release'
 
   // Resolve (find-or-create) the brief's ongoing content release. Generated
@@ -336,7 +341,7 @@ export async function generateMatrix(
         flowStep: stepKey,
         status: 'generated',
         generatedAt: new Date().toISOString(),
-        generatedFromBriefRev: brief._rev,
+        generatedFromBriefRev: briefSignature,
       }
 
       if (assignHeroFromMedia) {
