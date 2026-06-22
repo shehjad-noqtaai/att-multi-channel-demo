@@ -42,9 +42,14 @@ export default async function HomePage({searchParams}: PageProps) {
   const client = getClient(perspective)
   const isPreview = perspective !== PUBLISHED_PERSPECTIVE
 
+  // Resilient: a Sanity outage / DNS hiccup degrades to defaults instead of a
+  // full-page crash. (listActiveReleases already swallows its own errors.)
   const [raw, mergeFields, releases] = await Promise.all([
-    client.fetch<StorefrontHomepage | null>(STOREFRONT_QUERY, {}),
-    client.fetch<SimMergeField[]>(MERGE_FIELDS_QUERY, {}),
+    client.fetch<StorefrontHomepage | null>(STOREFRONT_QUERY, {}).catch((err) => {
+      console.error('[HomePage] storefront fetch failed — using defaults:', err)
+      return null
+    }),
+    client.fetch<SimMergeField[]>(MERGE_FIELDS_QUERY, {}).catch(() => [] as SimMergeField[]),
     listActiveReleases(),
   ])
   const cms = mergeStorefrontWithDefaults(raw)

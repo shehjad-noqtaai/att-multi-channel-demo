@@ -16,15 +16,22 @@ export const metadata: Metadata = {
 export const revalidate = 60
 
 export default async function RootLayout({children}: {children: React.ReactNode}) {
-  const shell = await sanityClient.fetch<{
-    header?: SiteHeader
-    orderCta?: OrderCta
-  } | null>(STOREFRONT_SHELL_QUERY, {})
+  // Resilient fetch: a Sanity outage / DNS hiccup must not crash the whole site.
+  // Fall back to the default shell so the header + chrome still render.
+  let shell: {header?: SiteHeader; orderCta?: OrderCta} | null = null
+  try {
+    shell = await sanityClient.fetch<{
+      header?: SiteHeader
+      orderCta?: OrderCta
+    } | null>(STOREFRONT_SHELL_QUERY, {})
+  } catch (err) {
+    console.error('[RootLayout] storefront shell fetch failed — using defaults:', err)
+  }
 
   return (
     <html lang="en">
       <body>
-        <AttHeader header={shell?.header} />
+        <AttHeader header={shell?.header ?? DEFAULT_STOREFRONT.header} />
         <AttOrderCta cta={shell?.orderCta ?? DEFAULT_STOREFRONT.orderCta} />
         <main>{children}</main>
       </body>
