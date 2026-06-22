@@ -26,3 +26,30 @@ export function urlForHero(heroImage: HeroImage | undefined, width = 1280): stri
   }
   return undefined
 }
+
+/** Split-layout hero — att.com-style ~6:5 crop with rounded frame. */
+export function urlForHeroSplit(
+  heroImage: HeroImage | undefined,
+  width = 960,
+  height = 800,
+): string | undefined {
+  if (!heroImage) return undefined
+  if (heroImage.url) {
+    const sep = heroImage.url.includes('?') ? '&' : '?'
+    return `${heroImage.url}${sep}w=${width}&h=${height}&fit=crop&crop=center&auto=format`
+  }
+  if (heroImage.asset?._ref) {
+    try {
+      return builder
+        .image(heroImage)
+        .width(width)
+        .height(height)
+        .fit('crop')
+        .auto('format')
+        .url()
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}

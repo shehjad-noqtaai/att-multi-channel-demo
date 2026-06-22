@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {usePathname, useSearchParams} from 'next/navigation'
 import {CAMPAIGN_PREVIEW_KEYS, CAMPAIGN_PREVIEWS, type CampaignPreviewKey} from '@/lib/campaignPreview'
 
-export function HomepageCampaignPicker({active}: {active: CampaignPreviewKey}) {
+export function CampaignPreviewPicker({active}: {active: CampaignPreviewKey}) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 

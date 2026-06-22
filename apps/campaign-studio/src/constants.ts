@@ -7,7 +7,7 @@ export const DATASET = (import.meta.env.VITE_SANITY_DATASET as string) || 'produ
  * that, queries hit the project dataset and the library reads as empty.
  */
 export const MEDIA_LIBRARY_ID =
-  (import.meta.env.VITE_SANITY_MEDIA_LIBRARY_ID as string) || 'mlZKouJfXE8F'
+  (import.meta.env.VITE_SANITY_MEDIA_LIBRARY_ID as string) || 'mlPbiNDAEve1'
 
 /** AT&T brand colors (used for accent only — preview mocks pull from segment.brandColor). */
 export const ATT_BLUE = '#00A8E0'

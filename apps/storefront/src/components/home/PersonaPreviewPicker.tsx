@@ -5,7 +5,7 @@ import {usePathname, useSearchParams} from 'next/navigation'
 import {PERSONA_KEYS, PERSONAS} from '@/lib/personas'
 import type {PersonaKey} from '@/types'
 
-export function HomepagePersonaPicker({active}: {active: PersonaKey}) {
+export function PersonaPreviewPicker({active}: {active: PersonaKey}) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 

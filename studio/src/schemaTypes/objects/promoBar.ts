@@ -1,7 +1,7 @@
 import {defineField, defineType} from 'sanity'
 
-export const homepagePromoBar = defineType({
-  name: 'homepagePromoBar',
+export const promoBar = defineType({
+  name: 'promoBar',
   title: 'Promo bar',
   type: 'object',
   fields: [

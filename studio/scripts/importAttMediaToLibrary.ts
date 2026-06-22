@@ -7,14 +7,16 @@
 //   export SANITY_AUTH_TOKEN=<token with project write; ML write for library target>
 //   npx tsx studio/scripts/importAttMediaToLibrary.ts
 //   npx tsx studio/scripts/importAttMediaToLibrary.ts --target=project
+//   npx tsx studio/scripts/importAttMediaToLibrary.ts --seed-homepage
 
 import {createClient, type SanityClient} from '@sanity/client'
 import {mkdir, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 
-const MEDIA_LIBRARY_ID = process.env.SANITY_MEDIA_LIBRARY_ID || 'mlZKouJfXE8F'
+const MEDIA_LIBRARY_ID = process.env.SANITY_MEDIA_LIBRARY_ID || 'mlPbiNDAEve1'
 const ML_API_VERSION = '2025-02-19'
+const ML_UI_BASE = `https://www.sanity.io/@oab7ManMj/media/${MEDIA_LIBRARY_ID}/assets`
 
 /** Curated att.com homepage assets (from page HTML / scmsassets CDN). */
 const ATT_ASSETS: Array<{
@@ -59,6 +61,34 @@ const ATT_ASSETS: Array<{
     url: 'https://www.att.com/scmsassets/upper_funnel/wireless/6332250-flex-card-sm-newline-v2-dsk-tall-retina.jpg',
     tags: ['att', 'wireless', 'promo', 'homepage'],
   },
+  {
+    id: 'att-home-phone-feature',
+    title: 'Home phone feature image',
+    description: 'Man on phone with laptop — att.com/home-phone feature block.',
+    url: 'https://www.att.com/scmsassets/upper_funnel/other/1735850-offer-greatplan-dsk-retina.jpg',
+    tags: ['att', 'home-phone', 'feature', 'homepage'],
+  },
+  {
+    id: 'att-home-phone-advanced-card',
+    title: 'Home phone Phone Advanced resource card',
+    description: 'AT&T Phone Advanced — att.com/home-phone More resources.',
+    url: 'https://www.att.com/scmsassets/sales/uf/internet/fiber/rivercard/1466807-rivercard-PhoneAdvanced-02-dsk-retina.jpg',
+    tags: ['att', 'home-phone', 'resource', 'homepage'],
+  },
+  {
+    id: 'att-home-phone-lifeline-card',
+    title: 'Home phone Lifeline resource card',
+    description: 'AT&T Lifeline — att.com/home-phone More resources.',
+    url: 'https://www.att.com/scmsassets/upper_funnel/other/1735850-rivercard-affordableservice-dsk-retina.jpg',
+    tags: ['att', 'home-phone', 'resource', 'homepage'],
+  },
+  {
+    id: 'att-home-phone-helpful-card',
+    title: 'Home phone Helpful resources card',
+    description: 'Helpful resources — att.com/home-phone More resources.',
+    url: 'https://www.att.com/scmsassets/upper_funnel/other/1735850-rivercard2-phoneaccessories-dsk-retina.jpg',
+    tags: ['att', 'home-phone', 'resource', 'homepage'],
+  },
 ]
 
 type UploadTarget = 'auto' | 'media-library' | 'project'
@@ -66,13 +96,50 @@ type UploadTarget = 'auto' | 'media-library' | 'project'
 interface UploadResponse {
   document?: {_id: string; url?: string}
   assetDocument?: {_id: string; url?: string}
+  asset?: {_id: string; url?: string}
+  assetInstance?: {_id: string; url?: string}
+  error?: {existingAssetId?: string; description?: string}
 }
 
-function parseArgs(argv: string[]): UploadTarget {
-  for (const a of argv) {
-    if (a.startsWith('--target=')) return a.split('=')[1] as UploadTarget
+/** image-{hash}-{WxH}-{ext} → Media Library CDN URL */
+function cdnUrlFromImageRef(ref: string, mediaLibraryId: string): string {
+  const m = ref.match(/^image-(.+)-(\d+x\d+)-(\w+)$/)
+  if (!m) return ''
+  return `https://cdn.sanity.io/media-libraries/${mediaLibraryId}/images/${m[1]}-${m[2]}.${m[3]}`
+}
+
+function parseUploadResponse(json: UploadResponse, status: number, mediaLibraryId: string) {
+  if (json.asset?._id) {
+    return {
+      mlAssetId: json.asset._id,
+      url: json.assetInstance?.url ?? '',
+      imageRef: json.assetInstance?._id,
+    }
   }
-  return 'auto'
+  if (json.document?._id || json.assetDocument?._id) {
+    const doc = json.document ?? json.assetDocument!
+    return {mlAssetId: doc._id.replace(/^drafts\./, ''), url: doc.url ?? ''}
+  }
+  if (status === 409 && json.error?.existingAssetId) {
+    const ref = json.error.existingAssetId
+    return {
+      mlAssetId: ref,
+      url: cdnUrlFromImageRef(ref, mediaLibraryId),
+      imageRef: ref,
+      alreadyExists: true,
+    }
+  }
+  return null
+}
+
+function parseArgs(argv: string[]): {target: UploadTarget; seedHomepage: boolean} {
+  let target: UploadTarget = 'auto'
+  let seedHomepage = false
+  for (const a of argv) {
+    if (a.startsWith('--target=')) target = a.split('=')[1] as UploadTarget
+    if (a === '--seed-homepage') seedHomepage = true
+  }
+  return {target, seedHomepage}
 }
 
 async function download(url: string): Promise<{buffer: Buffer; filename: string}> {
@@ -107,17 +174,22 @@ async function uploadToMediaLibrary(
   })
 
   const text = await res.text()
-  if (!res.ok) {
+  let json: UploadResponse
+  try {
+    json = JSON.parse(text) as UploadResponse
+  } catch {
     throw new Error(`Media Library upload failed (${res.status}): ${text}`)
   }
 
-  const json = JSON.parse(text) as UploadResponse
-  const doc = json.document ?? json.assetDocument
-  if (!doc?._id) throw new Error(`Upload response missing asset id: ${text.slice(0, 200)}`)
+  const parsed = parseUploadResponse(json, res.status, MEDIA_LIBRARY_ID)
+  if (!parsed?.mlAssetId) {
+    throw new Error(`Media Library upload failed (${res.status}): ${text.slice(0, 300)}`)
+  }
 
   return {
-    mlAssetId: doc._id.replace(/^drafts\./, ''),
-    url: doc.url || '',
+    mlAssetId: parsed.mlAssetId,
+    url: parsed.url || '',
+    alreadyExists: parsed.alreadyExists === true,
   }
 }
 
@@ -131,9 +203,19 @@ async function uploadToProject(
 }
 
 async function main() {
-  const target = parseArgs(process.argv.slice(2))
-  const token = process.env.SANITY_AUTH_TOKEN || process.env.SANITY_WRITE_TOKEN
-  if (!token) throw new Error('SANITY_AUTH_TOKEN env var required')
+  const {target, seedHomepage} = parseArgs(process.argv.slice(2))
+  const token =
+    process.env.SANITY_AUTH_TOKEN ||
+    process.env.SANITY_WRITE_TOKEN ||
+    process.env.SANITY_API_READ_TOKEN
+  if (!token) {
+    throw new Error(
+      'SANITY_AUTH_TOKEN env var required (or SANITY_API_READ_TOKEN from apps/storefront/.env)',
+    )
+  }
+
+  console.log(`[info] Target Media Library: ${MEDIA_LIBRARY_ID}`)
+  console.log(`[info] View assets: ${ML_UI_BASE}`)
 
   const client = createClient({
     projectId: process.env.SANITY_STUDIO_PROJECT_ID || 'z6s0fz61',
@@ -193,7 +275,9 @@ async function main() {
         mlAssetId: uploaded.mlAssetId,
         tags: asset.tags,
       })
-      console.log(`✓ media-library mlAsset=${uploaded.mlAssetId}`)
+      console.log(
+        `✓ media-library mlAsset=${uploaded.mlAssetId}${uploaded.alreadyExists ? ' (already existed)' : ''}`,
+      )
     } else {
       const uploaded = await uploadToProject(client, buffer, filename)
       await client.createOrReplace({
@@ -231,6 +315,16 @@ async function main() {
   }
 
   console.log(`\n=== done. Local copies: ${cacheDir} ===`)
+  console.log(`=== Media Library: ${ML_UI_BASE} ===`)
+
+  if (seedHomepage) {
+    console.log('\n=== Seeding storefront homepage with media references ===')
+    const {execSync} = await import('node:child_process')
+    execSync('npx tsx studio/scripts/seedStorefrontHomepage.ts', {
+      stdio: 'inherit',
+      env: process.env,
+    })
+  }
 }
 
 main().catch((err) => {

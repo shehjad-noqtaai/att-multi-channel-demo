@@ -11,10 +11,21 @@ import {flowStep} from './objects/flowStep'
 import {webContent} from './objects/webContent'
 import {emailContent} from './objects/emailContent'
 import {smsContent} from './objects/smsContent'
-import {homepagePromoBar} from './objects/homepagePromoBar'
-import {homepageStaticHero} from './objects/homepageStaticHero'
-import {homepagePersonalizedSlot} from './objects/homepagePersonalizedSlot'
-import {homepagePromoCard} from './objects/homepagePromoCard'
+import {promoBar} from './objects/promoBar'
+import {staticHero} from './objects/staticHero'
+import {personalizedSlot} from './objects/personalizedSlot'
+import {promoCard} from './objects/promoCard'
+import {navLink} from './objects/navLink'
+import {siteHeader} from './objects/siteHeader'
+import {siteFooter, footerLinkGroup} from './objects/siteFooter'
+import {legalNote} from './objects/legalNote'
+import {featureBlock} from './objects/featureBlock'
+import {resourceCard} from './objects/resourceCard'
+import {resourceSection} from './objects/resourceSection'
+import {faqItem} from './objects/faqItem'
+import {faqSection} from './objects/faqSection'
+import {orderCta} from './objects/orderCta'
+import {pageSectionTypes} from './blocks/pageSections'
 
 export const schemaTypes = [
   // Documents
@@ -31,8 +42,20 @@ export const schemaTypes = [
   webContent,
   emailContent,
   smsContent,
-  homepagePromoBar,
-  homepageStaticHero,
-  homepagePersonalizedSlot,
-  homepagePromoCard,
+  promoBar,
+  staticHero,
+  personalizedSlot,
+  promoCard,
+  navLink,
+  siteHeader,
+  footerLinkGroup,
+  siteFooter,
+  legalNote,
+  orderCta,
+  featureBlock,
+  resourceCard,
+  resourceSection,
+  faqItem,
+  faqSection,
+  ...pageSectionTypes,
 ]

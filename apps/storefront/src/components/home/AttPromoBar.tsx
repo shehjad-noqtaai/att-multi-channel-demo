@@ -1,6 +1,6 @@
-import type {HomepagePromoBar} from '@/types/homepage'
+import type {PromoBar} from '@/types/storefront'
 
-export function AttPromoBar({bar}: {bar?: HomepagePromoBar}) {
+export function AttPromoBar({bar}: {bar?: PromoBar}) {
   if (!bar?.enabled || !bar.message) return null
 
   return (

@@ -3,23 +3,35 @@ import {WEB_VARIATION_QUERY} from '@/sanity/queries'
 import {mergeText} from '@/sanity/tokens'
 import {urlForHero} from '@/sanity/image'
 import {getPersona} from '@/lib/personas'
+import {mergeCmsImage} from '@/lib/cmsImage'
 import type {
-  HomepagePersonalizedSlot,
-  HomepageStaticHero,
-  ResolvedHomepageSlot,
-} from '@/types/homepage'
+  PersonalizedSlot,
+  StaticHero,
+  ResolvedPersonalizedSlot,
+} from '@/types/storefront'
 import type {PersonaKey, WebVariation} from '@/types'
 
-function staticImageUrl(fallback?: HomepageStaticHero): string | undefined {
-  if (!fallback?.backgroundImage) return undefined
-  return urlForHero(fallback.backgroundImage, 1600)
+function staticImageUrl(fallback?: StaticHero): string | undefined {
+  if (!fallback) return undefined
+  const img = mergeCmsImage(
+    fallback.backgroundImage,
+    fallback.backgroundImageUrl,
+    fallback.backgroundImage?.alt,
+  )
+  if (!img) return undefined
+  return urlForHero(img, 1600)
 }
 
 function fromStatic(
-  slot: HomepagePersonalizedSlot,
-  fallback?: HomepageStaticHero,
-): ResolvedHomepageSlot | null {
+  slot: PersonalizedSlot,
+  fallback?: StaticHero,
+): ResolvedPersonalizedSlot | null {
   if (!fallback?.headline) return null
+  const heroImage = mergeCmsImage(
+    fallback.backgroundImage,
+    fallback.backgroundImageUrl,
+    fallback.backgroundImage?.alt,
+  )
   return {
     slotStyle: slot.slotStyle ?? 'hero',
     eyebrow: fallback.eyebrow,
@@ -27,17 +39,17 @@ function fromStatic(
     subheadline: fallback.subheadline,
     ctaLabel: fallback.ctaLabel,
     ctaUrl: fallback.ctaUrl,
-    heroImage: fallback.backgroundImage,
+    heroImage,
     isPersonalized: false,
     persona: (slot.defaultPersona as PersonaKey) ?? 'new',
   }
 }
 
 async function fromVariation(
-  slot: HomepagePersonalizedSlot,
+  slot: PersonalizedSlot,
   variation: WebVariation,
   persona: PersonaKey,
-): Promise<ResolvedHomepageSlot | null> {
+): Promise<ResolvedPersonalizedSlot | null> {
   const {web, brief, config, mergeFields} = variation
   if (!web?.headline) return null
 
@@ -68,11 +80,11 @@ async function fromVariation(
 }
 
 /** Resolve a homepage slot: published web variation for (brief, persona) or CMS fallback. */
-export async function resolveHomepageSlot(
-  slot: HomepagePersonalizedSlot | undefined | null,
+export async function resolvePersonalizedSlot(
+  slot: PersonalizedSlot | undefined | null,
   persona: PersonaKey,
   options?: {preferredFlowStep?: string},
-): Promise<ResolvedHomepageSlot | null> {
+): Promise<ResolvedPersonalizedSlot | null> {
   if (!slot?.enabled) return null
 
   const briefSlug = slot.campaignBrief?.slug

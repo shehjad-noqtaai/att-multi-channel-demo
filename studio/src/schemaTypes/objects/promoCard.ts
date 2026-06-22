@@ -1,7 +1,7 @@
 import {defineField, defineType} from 'sanity'
 
-export const homepagePromoCard = defineType({
-  name: 'homepagePromoCard',
+export const promoCard = defineType({
+  name: 'promoCard',
   title: 'Promo card',
   type: 'object',
   fields: [
@@ -23,10 +23,38 @@ export const homepagePromoCard = defineType({
       initialValue: 'att',
     }),
     defineField({
+      name: 'layout',
+      title: 'Layout',
+      type: 'string',
+      options: {
+        list: [
+          {title: 'Flex card (att.com horizontal)', value: 'flex'},
+          {title: 'Stacked (image on top)', value: 'stack'},
+        ],
+      },
+      initialValue: 'flex',
+    }),
+    defineField({
+      name: 'legalNote',
+      title: 'Legal fine print',
+      type: 'text',
+      rows: 2,
+    }),
+    defineField({name: 'legalLinkLabel', title: 'Legal link label', type: 'string'}),
+    defineField({name: 'legalLinkUrl', title: 'Legal link URL', type: 'url'}),
+    defineField({name: 'secondaryCtaLabel', title: 'Secondary CTA label', type: 'string'}),
+    defineField({name: 'secondaryCtaUrl', title: 'Secondary CTA URL', type: 'url'}),
+    defineField({
       name: 'image',
       type: 'image',
       options: {hotspot: true},
       fields: [defineField({name: 'alt', type: 'string', title: 'Alt text'})],
+    }),
+    defineField({
+      name: 'imageUrl',
+      title: 'Image URL',
+      type: 'url',
+      description: 'Media Library or external CDN URL when not using a project asset.',
     }),
   ],
   preview: {

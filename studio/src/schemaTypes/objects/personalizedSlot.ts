@@ -1,11 +1,11 @@
 import {defineField, defineType} from 'sanity'
 
 /**
- * A homepage region (hero, top banner, or inline promo) whose copy and imagery
+ * A page region (hero, banner, or promo tile) whose copy and imagery
  * come from the published web `contentVariation` for a linked campaign brief.
  */
-export const homepagePersonalizedSlot = defineType({
-  name: 'homepagePersonalizedSlot',
+export const personalizedSlot = defineType({
+  name: 'personalizedSlot',
   title: 'Personalized slot',
   type: 'object',
   fields: [
@@ -60,7 +60,7 @@ export const homepagePersonalizedSlot = defineType({
     defineField({
       name: 'staticFallback',
       title: 'Static fallback',
-      type: 'homepageStaticHero',
+      type: 'staticHero',
       description: 'Shown when no published web variation exists for the selected persona.',
     }),
   ],

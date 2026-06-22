@@ -35,6 +35,15 @@ html, body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+}
+
+main {
+  width: 100%;
+}
+
+.att-home {
+  width: 100%;
 }
 
 a { color: var(--brand-primary); text-decoration: none; }
@@ -336,6 +345,9 @@ img { max-width: 100%; display: block; }
   --att-navy: #001639;
   --att-charcoal: #1d2329;
   --slot-brand: var(--att-blue);
+  /* att.com — wide centered canvas with side margins */
+  --att-content-max: 1280px;
+  --att-content-gutter: clamp(20px, 5vw, 56px);
 }
 
 .att-header {
@@ -349,9 +361,9 @@ img { max-width: 100%; display: block; }
 }
 .att-header__utility-inner,
 .att-header__main-inner {
-  max-width: 1200px;
+  max-width: var(--att-content-max);
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 var(--att-content-gutter);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -369,11 +381,19 @@ img { max-width: 100%; display: block; }
 .att-header__utility-links a:hover { text-decoration: underline; }
 .att-header__main { padding: 14px 0; }
 .att-header__logo {
+  display: inline-flex;
+  align-items: center;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--att-blue);
   text-decoration: none;
+}
+.att-header__logo-img {
+  height: 36px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
 }
 .att-header__nav {
   display: none;
@@ -404,9 +424,9 @@ img { max-width: 100%; display: block; }
   font-size: 14px;
 }
 .att-promo-bar__inner {
-  max-width: 1200px;
+  max-width: var(--att-content-max);
   margin: 0 auto;
-  padding: 10px 20px;
+  padding: 10px var(--att-content-gutter);
   text-align: center;
 }
 .att-promo-bar__text { margin: 0; color: var(--color-fg); }
@@ -416,10 +436,62 @@ img { max-width: 100%; display: block; }
   text-decoration: underline;
 }
 
-.att-home__persona-wrap {
-  max-width: 1200px;
+.att-legal-note {
+  background: #fff;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.att-legal-note__inner {
+  max-width: var(--att-content-max);
   margin: 0 auto;
-  padding: 16px 20px 0;
+  padding: 8px var(--att-content-gutter);
+  text-align: center;
+}
+.att-legal-note__text { margin: 0; }
+.att-legal-note__link {
+  color: var(--att-blue);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.att-order-cta {
+  position: fixed;
+  top: 64px;
+  right: max(12px, env(safe-area-inset-right, 12px));
+  z-index: 90;
+  background: var(--att-navy);
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 22, 57, 0.25);
+}
+.att-order-cta__phone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.att-order-cta__phone:hover { text-decoration: none; opacity: 0.92; }
+.att-order-cta__label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.att-order-cta__number {
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+@media (max-width: 640px) {
+  .att-order-cta { top: auto; bottom: 16px; right: 16px; }
+}
+
+.att-home__persona-wrap {
+  max-width: var(--att-content-max);
+  margin: 0 auto;
+  padding: 16px var(--att-content-gutter) 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -479,96 +551,123 @@ img { max-width: 100%; display: block; }
 .att-persona-picker__pill--active { color: #fff !important; }
 
 .att-hero {
-  position: relative;
-  min-height: 420px;
-  background: var(--att-charcoal);
-  color: #fff;
-  margin: 16px 20px 0;
-  max-width: 1160px;
-  margin-left: auto;
-  margin-right: auto;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  background: #fff;
+  color: var(--color-fg);
+  width: 100%;
+  padding: 28px 0 36px;
+}
+.att-hero__shell {
+  max-width: var(--att-content-max);
+  margin: 0 auto;
+  padding: 0 var(--att-content-gutter);
+  box-sizing: border-box;
+}
+.att-hero__panel {
   display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: center;
 }
 @media (min-width: 900px) {
-  .att-hero { min-height: 480px; }
+  .att-hero__panel {
+    grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+    gap: clamp(32px, 4.5vw, 72px);
+    align-items: center;
+  }
 }
-.att-hero__media { grid-area: 1 / 1; }
+.att-hero__media {
+  border-radius: 24px;
+  overflow: hidden;
+  background: #eef1f4;
+  aspect-ratio: 6 / 5;
+  min-height: 260px;
+  box-shadow: 0 1px 0 rgba(0, 22, 57, 0.04);
+}
+@media (min-width: 900px) {
+  .att-hero__media {
+    aspect-ratio: auto;
+    width: 100%;
+    height: clamp(360px, 36vw, 460px);
+    min-height: 360px;
+  }
+}
 .att-hero__img {
   width: 100%;
   height: 100%;
-  min-height: 420px;
   object-fit: cover;
+  object-position: center center;
+  display: block;
 }
 .att-hero__placeholder {
-  min-height: 420px;
-  background: linear-gradient(135deg, var(--slot-brand) 0%, var(--att-navy) 100%);
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  background: linear-gradient(135deg, var(--slot-brand, var(--att-blue)) 0%, var(--att-navy) 100%);
 }
-.att-hero__content {
-  grid-area: 1 / 1;
-  display: flex;
-  align-items: flex-end;
-  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.72) 100%);
-}
-.att-hero__content-inner {
-  padding: 32px 28px 36px;
-  max-width: 640px;
+.att-hero__copy {
+  padding: 4px 0;
 }
 .att-hero__badge {
   display: inline-block;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(0, 22, 57, 0.08);
+  color: var(--att-navy);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .att-hero__eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 14px;
   font-weight: 600;
-  opacity: 0.95;
+  color: var(--color-muted);
 }
 .att-hero__headline {
   margin: 0;
-  font-size: clamp(28px, 4vw, 44px);
+  font-size: clamp(26px, 3.2vw, 40px);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.15;
   letter-spacing: -0.02em;
+  color: var(--att-navy);
+  max-width: 28ch;
 }
 .att-hero__subheadline {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   font-size: 17px;
-  line-height: 1.45;
-  opacity: 0.95;
+  line-height: 1.5;
+  color: var(--color-fg);
+  max-width: 42ch;
 }
 .att-hero__cta {
   display: inline-block;
-  margin-top: 20px;
-  padding: 12px 22px;
-  background: var(--slot-brand, var(--att-blue));
+  margin-top: 24px;
+  padding: 14px 28px;
+  background: var(--att-navy);
   color: #fff;
   font-weight: 700;
+  font-size: 15px;
   border-radius: 999px;
   text-decoration: none;
 }
-.att-hero__cta:hover { filter: brightness(0.95); text-decoration: none; }
+.att-hero__cta:hover { filter: brightness(1.08); text-decoration: none; }
 .att-hero__details-link {
   display: inline-block;
-  margin-left: 16px;
-  margin-top: 20px;
-  color: #fff;
+  margin-top: 16px;
+  margin-left: 0;
+  color: var(--att-blue);
   font-size: 14px;
+  font-weight: 600;
   text-decoration: underline;
 }
 
 .att-banner {
-  max-width: 1160px;
-  margin: 16px auto 0;
-  padding: 0 20px;
+  max-width: var(--att-content-max);
+  margin: 20px auto 0;
+  padding: 0 var(--att-content-gutter);
+  box-sizing: border-box;
 }
 .att-banner__inner {
   display: flex;
@@ -628,56 +727,587 @@ img { max-width: 100%; display: block; }
 }
 
 .att-home__grid-section {
-  padding: 48px 20px 32px;
+  padding: 56px var(--att-content-gutter) 40px;
 }
 .att-home__grid-inner {
-  max-width: 1200px;
+  max-width: var(--att-content-max);
   margin: 0 auto;
 }
 .att-home__grid-title {
-  margin: 0 0 24px;
-  font-size: clamp(24px, 3vw, 32px);
+  margin: 0 0 32px;
+  font-size: clamp(26px, 3vw, 36px);
   font-weight: 700;
   letter-spacing: -0.02em;
   text-align: center;
 }
 .att-home__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.att-home__grid--stack {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* att.com/home-phone feature split — copy + bullets left, image right */
+.att-feature-split {
+  width: 100%;
+  padding: 8px 0 16px;
+}
+.att-feature-split__shell {
+  max-width: var(--att-content-max);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.att-feature-split__panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .att-feature-split__panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 4vw, 64px);
+  }
+}
+.att-feature-split__copy {
+  padding: 4px 0;
+}
+.att-feature-split__eyebrow {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.att-feature-split__title {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--att-navy);
+  max-width: 22ch;
+}
+.att-feature-split__desc {
+  margin: 14px 0 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--color-fg);
+  max-width: 40ch;
+}
+.att-feature-split__bullets {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 44ch;
+}
+.att-feature-split__bullets li {
+  position: relative;
+  padding-left: 28px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--color-fg);
+}
+.att-feature-split__bullets li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--att-blue);
+  opacity: 0.2;
+}
+.att-feature-split__bullets li::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 0.55em;
+  width: 6px;
+  height: 3px;
+  border-left: 2px solid var(--att-blue);
+  border-bottom: 2px solid var(--att-blue);
+  transform: rotate(-45deg);
+}
+.att-feature-split__legal {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-muted);
+  max-width: 44ch;
+}
+.att-feature-split__cta {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 14px 28px;
+  background: var(--att-navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+.att-feature-split__cta:hover {
+  filter: brightness(1.08);
+  text-decoration: none;
+}
+.att-feature-split__media {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #eef1f4;
+  min-height: 280px;
+  aspect-ratio: 6 / 5;
+}
+@media (min-width: 900px) {
+  .att-feature-split__media {
+    aspect-ratio: auto;
+    height: clamp(340px, 32vw, 420px);
+    min-height: 340px;
+  }
+}
+.att-feature-split__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+.att-feature-split__placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background: linear-gradient(135deg, var(--att-blue) 0%, var(--att-navy) 100%);
+}
+
+/* att.com/home-phone “More resources” card grid */
+.att-resource-section {
+  background: #f7f7f7;
+  padding: 40px var(--att-content-gutter) 48px;
+  margin-top: 8px;
+}
+.att-resource-section__inner {
+  max-width: var(--att-content-max);
+  margin: 0 auto;
+}
+.att-resource-section__title {
+  margin: 0 0 28px;
+  font-size: clamp(24px, 2.8vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--att-navy);
+  text-align: center;
+}
+.att-resource-section__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+@media (min-width: 768px) {
+  .att-resource-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+.att-resource-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e4e8ec;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 100%;
+}
+.att-resource-card__media {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #eef1f4;
+}
+.att-resource-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+.att-resource-card__placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #e8eef5 0%, #d8e2ec 100%);
+}
+.att-resource-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 22px 24px 24px;
+}
+.att-resource-card__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--att-navy);
+}
+.att-resource-card__desc {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-fg);
+  flex: 1;
+}
+.att-resource-card__links {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.att-resource-card__links a {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--att-blue);
+  text-decoration: none;
+}
+.att-resource-card__links a:hover {
+  text-decoration: underline;
+}
+.att-resource-card__cta {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--att-blue);
+  text-decoration: none;
+}
+.att-resource-card__cta:hover {
+  text-decoration: underline;
+}
+
+/* att.com/internet/fiber/ FAQ accordion */
+.att-faq {
+  padding: 48px var(--att-content-gutter) 56px;
+  background: #fff;
+}
+.att-faq__inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.att-faq__title {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--att-navy);
+  text-align: center;
+}
+.att-faq__expand-all {
+  display: block;
+  margin: 12px auto 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--att-blue);
+  cursor: pointer;
+}
+.att-faq__expand-all:hover {
+  text-decoration: underline;
+}
+.att-faq__list {
+  margin-top: 28px;
+  border-top: 1px solid #e4e8ec;
+}
+.att-faq__item {
+  border-bottom: 1px solid #e4e8ec;
+}
+.att-faq__question-wrap {
+  margin: 0;
+}
+.att-faq__question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  width: 100%;
+  padding: 20px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--att-navy);
+}
+.att-faq__question span:first-child {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.att-faq__chevron {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--att-blue);
+  border-bottom: 2px solid var(--att-blue);
+  transform: rotate(45deg);
+  margin-top: -4px;
+  transition: transform 0.2s ease;
+}
+.att-faq__item--open .att-faq__chevron {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+.att-faq__panel {
+  padding: 0 0 20px;
+}
+.att-faq__panel[hidden] {
+  display: none;
+}
+.att-faq__answer {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-fg);
+}
+.att-faq__answer p {
+  margin: 0 0 12px;
+}
+.att-faq__answer p:last-child {
+  margin-bottom: 0;
+}
+.att-faq__answer ul {
+  margin: 12px 0 0;
+  padding-left: 20px;
+}
+.att-faq__answer li {
+  margin-bottom: 8px;
+}
+.att-faq__answer li:last-child {
+  margin-bottom: 0;
+}
+.att-faq__view-more {
+  display: block;
+  margin: 32px auto 0;
+  padding: 12px 32px;
+  border: 2px solid var(--att-navy);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--att-navy);
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+.att-faq__view-more:hover {
+  filter: brightness(0.97);
+  text-decoration: none;
+}
+.att-faq__view-more--link {
+  width: fit-content;
+}
+
+@media (min-width: 768px) {
+  .att-home__grid:not(.att-home__grid--stack) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* att.com flex promo band — blue wave background + horizontal cards */
+.att-promo-flex-band {
+  background-color: #009fdb;
+  background-image:
+    radial-gradient(ellipse 90% 70% at 10% 110%, rgba(0, 40, 100, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 55% at 95% -10%, rgba(0, 40, 100, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+  padding: 28px var(--att-content-gutter) 36px;
+  margin-top: 8px;
+}
+.att-promo-flex-band__inner {
+  max-width: var(--att-content-max);
+  margin: 0 auto;
+}
+.att-promo-flex-band__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 900px) {
+  .att-promo-flex-band__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
 }
 
 .att-promo-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16px;
   overflow: hidden;
+  min-height: 100%;
+}
+
+/* Stacked promo (e.g. Fiber tile) */
+.att-promo-card--stack {
+  border: 1px solid var(--color-border);
   background: #fff;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
 }
-.att-promo-card--fiber { border-top: 4px solid #00388f; }
-.att-promo-card--wireless { border-top: 4px solid var(--att-charcoal); }
-.att-promo-card--att { border-top: 4px solid var(--att-blue); }
-.att-promo-card--personalized { border-top-color: var(--slot-brand, var(--att-blue)); }
-.att-promo-card__media {
+.att-promo-card--stack.att-promo-card--fiber { border-top: 4px solid #00388f; }
+.att-promo-card--stack .att-promo-card__media {
   aspect-ratio: 16 / 9;
   background: var(--color-soft);
   overflow: hidden;
 }
-.att-promo-card__media img {
+.att-promo-card--stack .att-promo-card__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.att-promo-card__body {
+.att-promo-card--stack .att-promo-card__cta {
+  display: inline-block;
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--att-blue);
+  text-decoration: none;
+}
+.att-promo-card--stack .att-promo-card__cta:hover { text-decoration: underline; }
+
+/* Flex promo — att.com horizontal card */
+.att-promo-card--flex {
+  background: #eef6fc;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 22, 57, 0.06);
+}
+.att-promo-card--personalized {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: -2px;
+}
+.att-promo-card__flex-inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 280px;
+  height: 100%;
+}
+@media (min-width: 640px) {
+  .att-promo-card__flex-inner {
+    grid-template-columns: 1fr minmax(130px, 38%);
+  }
+}
+.att-promo-card--flex .att-promo-card__body {
+  padding: 24px 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1;
+}
+@media (min-width: 640px) {
+  .att-promo-card--flex .att-promo-card__body {
+    padding: 28px 12px 28px 28px;
+  }
+}
+.att-promo-card--flex .att-promo-card__badge {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.att-promo-card--flex .att-promo-card__title {
+  margin: 0;
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--att-navy);
+  max-width: 16ch;
+}
+.att-promo-card--flex .att-promo-card__desc {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: var(--color-fg);
+  line-height: 1.45;
+  max-width: 34ch;
+  flex: 0;
+}
+.att-promo-card__legal {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #5f6368;
+  max-width: 36ch;
+}
+.att-promo-card__legal a {
+  color: var(--att-blue);
+  text-decoration: underline;
+}
+.att-promo-card__actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.att-promo-card__cta-pill {
+  display: inline-block;
+  padding: 12px 26px;
+  background: var(--att-navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+.att-promo-card__cta-pill:hover {
+  filter: brightness(1.08);
+  text-decoration: none;
+}
+.att-promo-card__secondary-cta {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--att-blue);
+  text-decoration: none;
+}
+.att-promo-card__secondary-cta:hover { text-decoration: underline; }
+.att-promo-card--flex .att-promo-card__media {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 8px 8px 0 0;
+  aspect-ratio: auto;
+  min-height: 0;
+  background: transparent;
+  overflow: visible;
+}
+.att-promo-card--flex .att-promo-card__media img {
+  width: auto;
+  max-width: 100%;
+  max-height: min(260px, 88%);
+  height: auto;
+  object-fit: contain;
+  object-position: bottom right;
+  display: block;
+}
+
+/* Shared body styles for stack cards */
+.att-promo-card--stack .att-promo-card__body {
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: 1;
 }
-.att-promo-card__badge {
+.att-promo-card--stack .att-promo-card__badge {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
@@ -685,33 +1315,25 @@ img { max-width: 100%; display: block; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
-.att-promo-card__title {
+.att-promo-card--stack .att-promo-card__title {
   margin: 0;
   font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
 }
-.att-promo-card__desc {
+.att-promo-card--stack .att-promo-card__desc {
   margin: 0;
   font-size: 14px;
   color: var(--color-muted);
   line-height: 1.5;
   flex: 1;
 }
-.att-promo-card__cta {
-  display: inline-block;
-  margin-top: 8px;
-  font-weight: 700;
-  color: var(--att-blue);
-  text-decoration: none;
-}
-.att-promo-card__cta:hover { text-decoration: underline; }
 
 .att-home__demo-note {
-  padding: 0 20px 24px;
+  padding: 0 var(--att-content-gutter) 24px;
 }
 .att-home__demo-note-inner {
-  max-width: 1200px;
+  max-width: var(--att-content-max);
   margin: 0 auto;
   padding: 14px 16px;
   background: var(--color-soft);
@@ -728,16 +1350,51 @@ img { max-width: 100%; display: block; }
 
 .att-footer {
   border-top: 1px solid var(--color-border);
-  padding: 24px 20px 40px;
-  background: #fff;
+  padding: 48px var(--att-content-gutter) 56px;
+  background: #f9fafb;
 }
 .att-footer__inner {
-  max-width: 1200px;
+  max-width: var(--att-content-max);
   margin: 0 auto;
+}
+.att-footer__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 32px;
+  margin-bottom: 32px;
+}
+.att-footer__column-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-fg);
+}
+.att-footer__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.att-footer__link {
+  font-size: 13px;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.att-footer__link:hover {
+  color: var(--att-blue);
+  text-decoration: underline;
+}
+.att-footer__legal {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--color-muted);
+  line-height: 1.6;
+  max-width: 720px;
 }
 .att-footer__copy {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-muted);
-  line-height: 1.6;
 }

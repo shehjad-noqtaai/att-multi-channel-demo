@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import type {CSSProperties} from 'react'
-import type {ResolvedHomepageSlot} from '@/types/homepage'
+import type {ResolvedPersonalizedSlot} from '@/types/storefront'
 
-export function AttHomeBanner({slot}: {slot: ResolvedHomepageSlot}) {
+export function AttHomeBanner({slot}: {slot: ResolvedPersonalizedSlot}) {
   const ctaHref =
     slot.ctaUrl ||
     (slot.briefSlug && slot.persona ? `/offer/${slot.briefSlug}/${slot.persona}` : undefined)
