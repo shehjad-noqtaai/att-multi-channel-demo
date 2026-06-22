@@ -6,6 +6,15 @@ A Sanity-powered demo showing how **Sanity AI (Agent Actions)** turns a single c
 >
 > **Architecture overview: see [`docs/architecture.md`](./docs/architecture.md)**
 
+# App SDK app (campaign-studio) Run in app SDK directory
+npx sanity dev --port 3334
+
+# Storefront
+npm run storefront:dev
+
+# Sanity Studio
+npm run studio:dev
+
 ## The "wow" moment
 
 A marketer writes one brief in an **App SDK app**, clicks _Generate variations_, and Sanity AI produces **12 personalized variations** (3 channels × 4 segments) — each shaped to the channel's format and the segment's brand voice. All 12 are previewable as a live channel × segment matrix inside Sanity Studio with channel-accurate mockups.
